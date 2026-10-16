@@ -1,4 +1,6 @@
-// FILE: app/build.gradle
+// FILE: app/build.gradle.kts
+import java.io.ByteArrayOutputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -6,34 +8,30 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// ---- Automatic versioning from git tag ----
-// versionName = latest git tag  (v1.2 -> "1.2")
+// ---- Automatic versioning from git tag (Kotlin DSL) ----
+// versionName = latest git tag  (v2 -> "2")
 // versionCode = total commit count (always increases, never edit by hand)
 // No git / no tag -> safe fallback "1.0" / 1, build never breaks.
-def getVersionName = { ->
-    try {
-        def out = new ByteArrayOutputStream()
-        exec {
-            commandLine "git", "describe", "--tags", "--abbrev=0"
-            standardOutput = out
-        }
-        return out.toString().trim().replaceFirst(/^v/, "")
-    } catch (Exception ignored) {
-        return "1.0"
+fun gitTagVersionName(): String = try {
+    val out = ByteArrayOutputStream()
+    exec {
+        commandLine("git", "describe", "--tags", "--abbrev=0")
+        standardOutput = out
     }
+    out.toString().trim().removePrefix("v")
+} catch (e: Exception) {
+    "1.0"
 }
 
-def getVersionCode = { ->
-    try {
-        def out = new ByteArrayOutputStream()
-        exec {
-            commandLine "git", "rev-list", "--count", "HEAD"
-            standardOutput = out
-        }
-        return out.toString().trim().toInteger()
-    } catch (Exception ignored) {
-        return 1
+fun gitCommitCount(): Int = try {
+    val out = ByteArrayOutputStream()
+    exec {
+        commandLine("git", "rev-list", "--count", "HEAD")
+        standardOutput = out
     }
+    out.toString().trim().toInt()
+} catch (e: Exception) {
+    1
 }
 
 android {
@@ -44,8 +42,8 @@ android {
         applicationId = "com.masud.moneymanager"
         minSdk = 26
         targetSdk = 35
-        versionCode = getVersionCode()
-        versionName = getVersionName()
+        versionCode = gitCommitCount()
+        versionName = gitTagVersionName()
     }
 
     buildFeatures {
