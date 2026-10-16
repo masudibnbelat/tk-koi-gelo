@@ -161,6 +161,31 @@ app/src/main/
 └── res/mipmap-*/                             # launcher icons (red ৳)
 ```
 
+
+
+# github push
+# 1. Sob change commit koro
+git add -A
+git commit -m "v4.0.0"
+
+# 2. Tag dao
+git tag v4.0.0
+
+# 3. Tag confirm koro — v4.0.0 print hotei hobe (na hole build korba na)
+git describe --tags --abbrev=0
+
+# 4. Release APK build koro
+~/.local/opt/gradle-8.9/bin/gradle --no-daemon --max-workers=1 assembleRelease
+
+# 5. APK rename kore rakho
+cp app/build/outputs/apk/release/app-release.apk ~/Tk-Koi-Gelo-v4.apk
+ls -lh ~/Tk-Koi-Gelo-v4.apk
+
+# 6. Push koro (code + tag)
+git push origin main
+git push origin v4.0.0
+
+
 ## 🛠️ Tech stack
 
 - Kotlin + Jetpack Compose (Material 3)
