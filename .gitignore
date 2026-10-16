@@ -1,0 +1,29 @@
+# Gradle build outputs & caches
+.gradle/
+build/
+*/build/
+
+# Kotlin incremental compilation cache
+.kotlin/
+
+# Local SDK path / signing config — kokhono commit korba na
+local.properties
+
+# Keystore (release signing) — kokhono commit korba na
+*.jks
+*.keystore
+
+# Built APK / AAB — binary commit korar dorkar nai
+*.apk
+*.aab
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
