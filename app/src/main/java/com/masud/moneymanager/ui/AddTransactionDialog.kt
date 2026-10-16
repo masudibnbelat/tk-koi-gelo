@@ -1,3 +1,4 @@
+// FILE: app/src/main/java/com/masud/moneymanager/ui/AddTransactionDialog.kt
 package com.masud.moneymanager.ui
 
 import androidx.compose.animation.AnimatedVisibility
@@ -15,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +31,7 @@ import java.util.*
 
 private val ExpenseRed = Color(0xFFFF5C5C)
 private val IncomeGreen = Color(0xFF1ED760)
+private val DarkRed = Color(0xFFB71C1C)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +65,38 @@ fun AddTransactionDialog(
         }
     val accent = MaterialTheme.colorScheme.primary
 
+    // Dynamic top button: "Save" when any amount entered, "Cancel" when empty.
+    val hasData = expenseAmount.isNotBlank() || incomeAmount.isNotBlank()
+
+    fun trySave() {
+        val isExpense = expenseAmount.isNotBlank()
+        val rawAmount = if (isExpense) expenseAmount else incomeAmount
+        val parsedAmount = rawAmount.trim().toDoubleOrNull()
+
+        when {
+            rawAmount.isBlank() -> {
+                error = "Enter an amount."
+            }
+
+            parsedAmount == null || !parsedAmount.isFinite() || parsedAmount <= 0.0 -> {
+                error = "Enter an amount greater than zero."
+            }
+
+            else -> {
+                onSave(
+                    TransactionEntity(
+                        title = title.trim().ifBlank { if (isExpense) expenseCategory else incomeCategory },
+                        amount = parsedAmount,
+                        type = if (isExpense) "EXPENSE" else "INCOME",
+                        category = if (isExpense) expenseCategory else incomeCategory,
+                        note = note.trim(),
+                        createdAt = selectedDate.timeInMillis,
+                    ),
+                )
+            }
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -84,11 +117,23 @@ fun AddTransactionDialog(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Add Transaction", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(38.dp).background(accent, CircleShape),
+                Button(
+                    onClick = { if (hasData) trySave() else onDismiss() },
+                    shape =
+                        RoundedCornerShape(
+                            topStart = 0.dp,
+                            topEnd = 0.dp,
+                            bottomStart = 14.dp,
+                            bottomEnd = 14.dp,
+                        ),
+                    colors = ButtonDefaults.buttonColors(containerColor = DarkRed, contentColor = Color.White),
+                    contentPadding = PaddingValues(horizontal = 22.dp, vertical = 9.dp),
                 ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(18.dp))
+                    Text(
+                        text = if (hasData) "Save" else "Cancel",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                    )
                 }
             }
 
@@ -249,44 +294,6 @@ fun AddTransactionDialog(
                     Spacer(Modifier.height(6.dp))
                     Text(error ?: "", color = ExpenseRed, fontSize = 12.sp)
                 }
-            }
-
-            Spacer(Modifier.height(14.dp))
-
-            Button(
-                onClick = {
-                    val isExpense = expenseAmount.isNotBlank()
-                    val rawAmount = if (isExpense) expenseAmount else incomeAmount
-                    val parsedAmount = rawAmount.trim().toDoubleOrNull()
-
-                    when {
-                        rawAmount.isBlank() -> {
-                            error = "Enter an amount."
-                        }
-
-                        parsedAmount == null || !parsedAmount.isFinite() || parsedAmount <= 0.0 -> {
-                            error = "Enter an amount greater than zero."
-                        }
-
-                        else -> {
-                            onSave(
-                                TransactionEntity(
-                                    title = title.trim().ifBlank { if (isExpense) expenseCategory else incomeCategory },
-                                    amount = parsedAmount,
-                                    type = if (isExpense) "EXPENSE" else "INCOME",
-                                    category = if (isExpense) expenseCategory else incomeCategory,
-                                    note = note.trim(),
-                                    createdAt = selectedDate.timeInMillis,
-                                ),
-                            )
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = accent),
-            ) {
-                Text("Save Transaction", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }

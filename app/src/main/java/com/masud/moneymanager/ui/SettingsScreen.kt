@@ -164,6 +164,10 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(20.dp))
+            SectionLabel("App updates")
+            UpdateCard()
+
+            Spacer(Modifier.height(20.dp))
             SectionLabel("Developer Contact")
             SettingsGroup {
                 SettingsRow(

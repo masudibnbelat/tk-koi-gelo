@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FILE: app/src/main/res/xml/file_paths.xml -->
+<paths>
+    <!-- APK downloads live in <cache>/updates, shared read-only with the installer -->
+    <cache-path name="updates" path="updates/" />
+</paths>
