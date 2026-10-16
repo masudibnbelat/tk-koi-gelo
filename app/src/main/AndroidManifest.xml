@@ -1,30 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- FILE: app/src/main/AndroidManifest.xml -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
-        android:allowBackup="false"
+        android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="Tk Koi Gelo"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/Theme.TkKoiGelo">
 
         <activity
             android:name=".MainActivity"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
-        <!-- Shares the downloaded APK with the system installer -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.masud.moneymanager.fileprovider"
@@ -35,6 +34,16 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-    </application>
+        <receiver
+            android:name=".ui.TaskAlarmReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".ui.TaskBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
+    </application>
 </manifest>

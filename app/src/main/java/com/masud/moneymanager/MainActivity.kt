@@ -307,7 +307,7 @@ private fun ImportConfirmSheet(
                 ImportFormatRow(
                     icon = Icons.Filled.TableChart,
                     title = "Excel",
-                    subtitle = ".xlsx — transactions, loans & categories in sheets",
+                    subtitle = ".xlsx — transactions, loans, accounts & tasks in sheets",
                     tint = green
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))

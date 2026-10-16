@@ -11,9 +11,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.*
@@ -36,319 +38,422 @@ private val DarkRed = Color(0xFFB71C1C)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionDialog(
-    currency: String = "BDT",
-    expenseCategories: List<String> = Categories.expense,
-    incomeCategories: List<String> = Categories.income,
-    onDismiss: () -> Unit,
-    onSave: (TransactionEntity) -> Unit,
+        currency: String = "BDT",
+        expenseCategories: List<String> = Categories.expense,
+        incomeCategories: List<String> = Categories.income,
+        onDismiss: () -> Unit,
+        onSave: (TransactionEntity) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    val safeExpenseCats = expenseCategories.ifEmpty { listOf("General") }
-    val safeIncomeCats = incomeCategories.ifEmpty { listOf("Other") }
+        val safeExpenseCats = expenseCategories.ifEmpty { listOf("General") }
+        val safeIncomeCats = incomeCategories.ifEmpty { listOf("Other") }
 
-    var expenseAmount by remember { mutableStateOf("") }
-    var expenseCategory by remember(safeExpenseCats) { mutableStateOf(safeExpenseCats.first()) }
-    var incomeAmount by remember { mutableStateOf("") }
-    var incomeCategory by remember(safeIncomeCats) { mutableStateOf(safeIncomeCats.first()) }
-    var title by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
-    var selectedDate by remember { mutableStateOf(Calendar.getInstance()) }
-    var showExpenseCategoryMenu by remember { mutableStateOf(false) }
-    var showIncomeCategoryMenu by remember { mutableStateOf(false) }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+        var expenseAmount by remember { mutableStateOf("") }
+        var expenseCategory by remember(safeExpenseCats) { mutableStateOf(safeExpenseCats.first()) }
+        var incomeAmount by remember { mutableStateOf("") }
+        var incomeCategory by remember(safeIncomeCats) { mutableStateOf(safeIncomeCats.first()) }
+        var title by remember { mutableStateOf("") }
+        var note by remember { mutableStateOf("") }
+        var selectedDate by remember { mutableStateOf(Calendar.getInstance()) }
+        var showExpenseCategoryMenu by remember { mutableStateOf(false) }
+        var showIncomeCategoryMenu by remember { mutableStateOf(false) }
+        var showDatePicker by remember { mutableStateOf(false) }
+        var error by remember { mutableStateOf<String?>(null) }
 
-    val dateLabel =
-        remember(selectedDate) {
-            SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.getDefault()).format(selectedDate.time)
+        val dateLabel =
+                remember(selectedDate) {
+                        SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.getDefault())
+                                .format(selectedDate.time)
+                }
+        val accent = MaterialTheme.colorScheme.primary
+
+        // Dynamic top button: "Save" when any amount entered, "Cancel" when empty.
+        val hasData = expenseAmount.isNotBlank() || incomeAmount.isNotBlank()
+
+        fun trySave() {
+                val isExpense = expenseAmount.isNotBlank()
+                val rawAmount = if (isExpense) expenseAmount else incomeAmount
+                val parsedAmount = rawAmount.trim().toDoubleOrNull()
+
+                when {
+                        rawAmount.isBlank() -> {
+                                error = "Enter an amount."
+                        }
+                        parsedAmount == null || !parsedAmount.isFinite() || parsedAmount <= 0.0 -> {
+                                error = "Enter an amount greater than zero."
+                        }
+                        else -> {
+                                onSave(
+                                        TransactionEntity(
+                                                title =
+                                                        title.trim().ifBlank {
+                                                                if (isExpense) expenseCategory
+                                                                else incomeCategory
+                                                        },
+                                                amount = parsedAmount,
+                                                type = if (isExpense) "EXPENSE" else "INCOME",
+                                                category =
+                                                        if (isExpense) expenseCategory
+                                                        else incomeCategory,
+                                                note = note.trim(),
+                                                createdAt = selectedDate.timeInMillis,
+                                        ),
+                                )
+                        }
+                }
         }
-    val accent = MaterialTheme.colorScheme.primary
 
-    // Dynamic top button: "Save" when any amount entered, "Cancel" when empty.
-    val hasData = expenseAmount.isNotBlank() || incomeAmount.isNotBlank()
-
-    fun trySave() {
-        val isExpense = expenseAmount.isNotBlank()
-        val rawAmount = if (isExpense) expenseAmount else incomeAmount
-        val parsedAmount = rawAmount.trim().toDoubleOrNull()
-
-        when {
-            rawAmount.isBlank() -> {
-                error = "Enter an amount."
-            }
-
-            parsedAmount == null || !parsedAmount.isFinite() || parsedAmount <= 0.0 -> {
-                error = "Enter an amount greater than zero."
-            }
-
-            else -> {
-                onSave(
-                    TransactionEntity(
-                        title = title.trim().ifBlank { if (isExpense) expenseCategory else incomeCategory },
-                        amount = parsedAmount,
-                        type = if (isExpense) "EXPENSE" else "INCOME",
-                        category = if (isExpense) expenseCategory else incomeCategory,
-                        note = note.trim(),
-                        createdAt = selectedDate.timeInMillis,
-                    ),
-                )
-            }
-        }
-    }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.background,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 24.dp)
-                    .animateContentSize(),
+        ModalBottomSheet(
+                onDismissRequest = onDismiss,
+                sheetState = sheetState,
+                containerColor = MaterialTheme.colorScheme.background,
+                dragHandle = { BottomSheetDefaults.DragHandle() },
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Add Transaction", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
-                Button(
-                    onClick = { if (hasData) trySave() else onDismiss() },
-                    shape =
-                        RoundedCornerShape(
-                            topStart = 0.dp,
-                            topEnd = 0.dp,
-                            bottomStart = 14.dp,
-                            bottomEnd = 14.dp,
-                        ),
-                    colors = ButtonDefaults.buttonColors(containerColor = DarkRed, contentColor = Color.White),
-                    contentPadding = PaddingValues(horizontal = 22.dp, vertical = 9.dp),
+                Column(
+                        modifier =
+                                Modifier.fillMaxWidth()
+                                        .verticalScroll(rememberScrollState())
+                                        .imePadding()
+                                        .padding(horizontal = 20.dp)
+                                        .padding(bottom = 24.dp)
+                                        .animateContentSize(),
                 ) {
-                    Text(
-                        text = if (hasData) "Save" else "Cancel",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                    )
+                        Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                                Text(
+                                        "Add Transaction",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Button(
+                                        onClick = { if (hasData) trySave() else onDismiss() },
+                                        shape =
+                                                RoundedCornerShape(
+                                                        topStart = 0.dp,
+                                                        topEnd = 0.dp,
+                                                        bottomStart = 14.dp,
+                                                        bottomEnd = 14.dp,
+                                                ),
+                                        colors =
+                                                ButtonDefaults.buttonColors(
+                                                        containerColor = DarkRed,
+                                                        contentColor = Color.White
+                                                ),
+                                        contentPadding =
+                                                PaddingValues(horizontal = 22.dp, vertical = 9.dp),
+                                ) {
+                                        Text(
+                                                text = if (hasData) "Save" else "Cancel",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                        )
+                                }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // Date — akdom upore (Expense amount er o age)
+                        Surface(
+                                modifier =
+                                        Modifier.fillMaxWidth().clickable { showDatePicker = true },
+                                shape = RoundedCornerShape(16.dp),
+                                color =
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(
+                                                alpha = 0.25f
+                                        ),
+                                border =
+                                        BorderStroke(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.outlineVariant
+                                        ),
+                        ) {
+                                Row(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                        Icon(
+                                                Icons.Default.CalendarMonth,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Column {
+                                                Text(
+                                                        "Transaction Date",
+                                                        fontSize = 11.sp,
+                                                        color =
+                                                                MaterialTheme.colorScheme
+                                                                        .onSurfaceVariant
+                                                )
+                                                Text(
+                                                        dateLabel,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                        }
+                                }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Text(
+                                "Expense",
+                                color = ExpenseRed,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                        )
+                        Spacer(Modifier.height(6.dp))
+
+                        OutlinedTextField(
+                                value = expenseAmount,
+                                onValueChange = {
+                                        expenseAmount = sanitizeAmountInput(it)
+                                        if (expenseAmount.isNotBlank()) incomeAmount = ""
+                                        error = null
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = {
+                                        Text("Expense Amount (${currencySymbol(currency)})")
+                                },
+                                leadingIcon = {
+                                        Text(
+                                                currencySymbol(currency),
+                                                color = ExpenseRed,
+                                                fontWeight = FontWeight.Bold
+                                        )
+                                },
+                                singleLine = true,
+                                keyboardOptions =
+                                        KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                shape = RoundedCornerShape(16.dp),
+                                colors =
+                                        OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = ExpenseRed,
+                                                unfocusedBorderColor =
+                                                        MaterialTheme.colorScheme.outline,
+                                        ),
+                        )
+
+                        AnimatedVisibility(
+                                visible = expenseAmount.isNotBlank(),
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically(),
+                        ) {
+                                Column {
+                                        Spacer(Modifier.height(6.dp))
+                                        OutlinedTextField(
+                                                value = title,
+                                                onValueChange = { title = it },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                placeholder = { Text("Expense Title") },
+                                                singleLine = true,
+                                                shape = RoundedCornerShape(16.dp),
+                                        )
+                                }
+                        }
+
+                        Spacer(Modifier.height(6.dp))
+
+                        CategoryDropdownField(
+                                selected = expenseCategory,
+                                categories = safeExpenseCats,
+                                expanded = showExpenseCategoryMenu,
+                                onExpandedChange = { showExpenseCategoryMenu = it },
+                                onSelect = {
+                                        expenseCategory = it
+                                        showExpenseCategoryMenu = false
+                                },
+                                accentColor = ExpenseRed,
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(Modifier.height(12.dp))
+
+                        Text(
+                                "Income",
+                                color = IncomeGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                        )
+                        Spacer(Modifier.height(6.dp))
+
+                        OutlinedTextField(
+                                value = incomeAmount,
+                                onValueChange = {
+                                        incomeAmount = sanitizeAmountInput(it)
+                                        if (incomeAmount.isNotBlank()) expenseAmount = ""
+                                        error = null
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = {
+                                        Text("Income Amount (${currencySymbol(currency)})")
+                                },
+                                leadingIcon = {
+                                        Text(
+                                                currencySymbol(currency),
+                                                color = IncomeGreen,
+                                                fontWeight = FontWeight.Bold
+                                        )
+                                },
+                                singleLine = true,
+                                keyboardOptions =
+                                        KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                shape = RoundedCornerShape(16.dp),
+                                colors =
+                                        OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = IncomeGreen,
+                                                unfocusedBorderColor =
+                                                        MaterialTheme.colorScheme.outline,
+                                        ),
+                        )
+
+                        AnimatedVisibility(
+                                visible = incomeAmount.isNotBlank(),
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically(),
+                        ) {
+                                Column {
+                                        Spacer(Modifier.height(6.dp))
+                                        OutlinedTextField(
+                                                value = title,
+                                                onValueChange = { title = it },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                placeholder = { Text("Income Title") },
+                                                singleLine = true,
+                                                shape = RoundedCornerShape(16.dp),
+                                        )
+                                }
+                        }
+
+                        Spacer(Modifier.height(6.dp))
+
+                        CategoryDropdownField(
+                                selected = incomeCategory,
+                                categories = safeIncomeCats,
+                                expanded = showIncomeCategoryMenu,
+                                onExpandedChange = { showIncomeCategoryMenu = it },
+                                onSelect = {
+                                        incomeCategory = it
+                                        showIncomeCategoryMenu = false
+                                },
+                                accentColor = IncomeGreen,
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(Modifier.height(12.dp))
+
+                        Text(
+                                "Details",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp
+                        )
+                        Spacer(Modifier.height(6.dp))
+
+                        OutlinedTextField(
+                                value = note,
+                                onValueChange = { note = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("Note (Optional)") },
+                                shape = RoundedCornerShape(16.dp),
+                        )
+
+                        AnimatedVisibility(visible = error != null) {
+                                Column {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(error ?: "", color = ExpenseRed, fontSize = 12.sp)
+                                }
+                        }
                 }
-            }
-
-            Spacer(Modifier.height(14.dp))
-
-            Text("Expense", color = ExpenseRed, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Spacer(Modifier.height(6.dp))
-
-            OutlinedTextField(
-                value = expenseAmount,
-                onValueChange = {
-                    expenseAmount = sanitizeAmountInput(it)
-                    if (expenseAmount.isNotBlank()) incomeAmount = ""
-                    error = null
-                },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Expense Amount (${currencySymbol(currency)})") },
-                leadingIcon = { Text(currencySymbol(currency), color = ExpenseRed, fontWeight = FontWeight.Bold) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                shape = RoundedCornerShape(16.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ExpenseRed,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    ),
-            )
-
-            AnimatedVisibility(
-                visible = expenseAmount.isNotBlank(),
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically(),
-            ) {
-                Column {
-                    Spacer(Modifier.height(6.dp))
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Expense Title") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(6.dp))
-
-            CategoryDropdownField(
-                selected = expenseCategory,
-                categories = safeExpenseCats,
-                expanded = showExpenseCategoryMenu,
-                onExpandedChange = { showExpenseCategoryMenu = it },
-                onSelect = {
-                    expenseCategory = it
-                    showExpenseCategoryMenu = false
-                },
-                accentColor = ExpenseRed,
-            )
-
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(Modifier.height(12.dp))
-
-            Text("Income", color = IncomeGreen, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Spacer(Modifier.height(6.dp))
-
-            OutlinedTextField(
-                value = incomeAmount,
-                onValueChange = {
-                    incomeAmount = sanitizeAmountInput(it)
-                    if (incomeAmount.isNotBlank()) expenseAmount = ""
-                    error = null
-                },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Income Amount (${currencySymbol(currency)})") },
-                leadingIcon = { Text(currencySymbol(currency), color = IncomeGreen, fontWeight = FontWeight.Bold) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                shape = RoundedCornerShape(16.dp),
-                colors =
-                    OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = IncomeGreen,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    ),
-            )
-
-            AnimatedVisibility(
-                visible = incomeAmount.isNotBlank(),
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically(),
-            ) {
-                Column {
-                    Spacer(Modifier.height(6.dp))
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Income Title") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(6.dp))
-
-            CategoryDropdownField(
-                selected = incomeCategory,
-                categories = safeIncomeCats,
-                expanded = showIncomeCategoryMenu,
-                onExpandedChange = { showIncomeCategoryMenu = it },
-                onSelect = {
-                    incomeCategory = it
-                    showIncomeCategoryMenu = false
-                },
-                accentColor = IncomeGreen,
-            )
-
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Spacer(Modifier.height(12.dp))
-
-            Text("Details", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-            Spacer(Modifier.height(6.dp))
-
-            Surface(
-                modifier = Modifier.fillMaxWidth().clickable { showDatePicker = true },
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Column {
-                        Text("Transaction Date", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(dateLabel, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(6.dp))
-
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Note (Optional)") },
-                shape = RoundedCornerShape(16.dp),
-            )
-
-            AnimatedVisibility(visible = error != null) {
-                Column {
-                    Spacer(Modifier.height(6.dp))
-                    Text(error ?: "", color = ExpenseRed, fontSize = 12.sp)
-                }
-            }
         }
-    }
 
-    if (showDatePicker) {
-        SimpleDatePickerDialog(
-            initialDate = selectedDate,
-            onDismiss = { showDatePicker = false },
-            onConfirm = {
-                selectedDate = it
-                showDatePicker = false
-            },
-        )
-    }
+        if (showDatePicker) {
+                SimpleDatePickerDialog(
+                        initialDate = selectedDate,
+                        onDismiss = { showDatePicker = false },
+                        onConfirm = {
+                                selectedDate = it
+                                showDatePicker = false
+                        },
+                )
+        }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryDropdownField(
-    selected: String,
-    categories: List<String>,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    onSelect: (String) -> Unit,
-    accentColor: Color,
+        selected: String,
+        categories: List<String>,
+        expanded: Boolean,
+        onExpandedChange: (Boolean) -> Unit,
+        onSelect: (String) -> Unit,
+        accentColor: Color,
 ) {
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = onExpandedChange) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().menuAnchor(),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(
-                        modifier = Modifier.size(26.dp).background(accentColor.copy(alpha = 0.15f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Box(modifier = Modifier.size(9.dp).background(accentColor, CircleShape))
-                    }
-                    Text(selected, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = onExpandedChange) {
+                Surface(
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                        Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                                Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                        Box(
+                                                modifier =
+                                                        Modifier.size(26.dp)
+                                                                .background(
+                                                                        accentColor.copy(
+                                                                                alpha = 0.15f
+                                                                        ),
+                                                                        CircleShape
+                                                                ),
+                                                contentAlignment = Alignment.Center,
+                                        ) {
+                                                Box(
+                                                        modifier =
+                                                                Modifier.size(9.dp)
+                                                                        .background(
+                                                                                accentColor,
+                                                                                CircleShape
+                                                                        )
+                                                )
+                                        }
+                                        Text(
+                                                selected,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                }
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                        }
                 }
-                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-            }
-        }
 
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { onExpandedChange(false) }) {
-            categories.forEach { item ->
-                DropdownMenuItem(text = { Text(item) }, onClick = { onSelect(item) })
-            }
+                ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { onExpandedChange(false) }
+                ) {
+                        categories.forEach { item ->
+                                DropdownMenuItem(
+                                        text = { Text(item) },
+                                        onClick = { onSelect(item) }
+                                )
+                        }
+                }
         }
-    }
 }

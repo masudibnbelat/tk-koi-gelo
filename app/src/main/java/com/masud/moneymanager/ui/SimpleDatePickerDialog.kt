@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.SimpleDateFormat
 import java.util.*
 
 private enum class PickerStep { YEAR, MONTH, DAY }
@@ -52,10 +53,20 @@ fun SimpleDatePickerDialog(
         if (day > daysInMonth) day = daysInMonth
     }
 
+    // Selected date + short day name (Fri, 16 Oct 2026)
+    val selectedLabel = remember(year, month, day, daysInMonth) {
+        val c = Calendar.getInstance().apply {
+            set(Calendar.YEAR, year)
+            set(Calendar.MONTH, month)
+            set(Calendar.DAY_OF_MONTH, day.coerceAtMost(daysInMonth))
+        }
+        SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(c.time)
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         Column(
@@ -69,7 +80,15 @@ fun SimpleDatePickerDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Select Date", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                Column {
+                    Text("Select Date", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                    Text(
+                        selectedLabel,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = accent
+                    )
+                }
                 IconButton(
                     onClick = onDismiss,
                     modifier = Modifier
@@ -163,14 +182,41 @@ fun SimpleDatePickerDialog(
                     }
                 }
                 PickerStep.DAY -> {
-                    // 1..daysInMonth grid (7 columns)
+                    val weekDays = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+                    // Maser 1 tarikh kon bare pore (1 = Sunday)
+                    val firstWeekDay = remember(year, month) {
+                        Calendar.getInstance().apply {
+                            set(Calendar.YEAR, year)
+                            set(Calendar.MONTH, month)
+                            set(Calendar.DAY_OF_MONTH, 1)
+                        }.get(Calendar.DAY_OF_WEEK)
+                    }
+                    val leadingBlanks = firstWeekDay - 1
                     val days = remember(daysInMonth) { (1..daysInMonth).toList() }
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(7),
-                        modifier = Modifier.height(360.dp),
+                        modifier = Modifier.height(410.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        // Barer nam header
+                        items(7) { i ->
+                            Box(
+                                modifier = Modifier.aspectRatio(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    weekDays[i],
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        // 1 tarikher ager faka ghor
+                        items(leadingBlanks) {
+                            Spacer(Modifier.aspectRatio(1f))
+                        }
                         items(days) { d ->
                             val selected = d == day
                             Surface(
