@@ -46,6 +46,16 @@ android {
         versionName = gitTagVersionName()
     }
 
+    buildTypes {
+        release {
+            // Sign release with the existing debug keystore (~/.android/debug.keystore).
+            // No new key, no password, no env vars needed.
+            // Same key as installDebug builds -> updates install over the current app, no data loss.
+            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+        }
+    }
+
     buildFeatures {
         compose = true
     }
