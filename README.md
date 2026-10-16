@@ -1,42 +1,123 @@
-# Money Manager (Native Android starter)
+# Tk Koi Gelo 💰
 
-A small offline-first Kotlin + Jetpack Compose starter. Transactions are stored locally in Room/SQLite. JSON export/import uses Android's system file picker; no storage permission or server is needed.
+A modern, offline-first personal finance app for Android — built with Kotlin & Jetpack Compose.
 
-## Requirements
+Track income & expenses, manage loans, organize money in separate accounts, and back everything up to Excel or JSON. No account, no internet, no ads — your data stays on your device.
+
+## ✨ Features
+
+- **Transactions** — monthly list view, calendar strip view, fast search
+- **Loan Manager** — lent/borrowed tracking per person, animated repayment progress, Active/Done tabs
+- **Accounts** — separate named accounts with dated entries (amount + note)
+- **Dynamic categories** — add, edit & delete your own income/expense categories
+- **Backup & restore** — export/import Excel (.xlsx) or JSON via the system file picker
+- **130+ currencies** — searchable currency picker
+- **Dark theme** — edge-to-edge, modern animated UI
+
+## 📋 Requirements
+
 - JDK 17
-- Android SDK Platform 35
-- Android Build Tools 35.0.0
-- Gradle 8.9 (compatible with Android Gradle Plugin 8.7.3)
-- Internet for the first Gradle dependency download; later builds may work offline once dependencies are cached.
+- Android SDK: Platform 35, Build Tools 35.0.0
+- Gradle 8.9
+- Android device with USB debugging enabled (for direct install)
+- Internet on first build (Gradle downloads dependencies); later builds can work offline once cached
 
-## Build without Android Studio
-From this project directory, run:
+## 📂 Open the code
+
+**VS Code**
+
+1. Open the project folder (`MoneyManager/`)
+2. Optional: install Kotlin / Gradle extensions for syntax highlighting
+
+**Android Studio**
+
+1. File → Open → select the `MoneyManager` folder
+2. Wait for the Gradle sync to finish
+
+## 🔨 Generate APK
+
+From the project directory, run:
 
 ```bash
-gradle --version
-gradle assembleDebug --no-daemon --max-workers=1
+# Debug APK (for testing on your own device)
+~/.local/opt/gradle-8.9/bin/gradle --no-daemon --max-workers=1 assembleDebug
+
+# Release APK (for sharing)
+~/.local/opt/gradle-8.9/bin/gradle --no-daemon --max-workers=1 assembleRelease
 ```
 
 APK output:
-`app/build/outputs/apk/debug/app-debug.apk`
 
-Install to a USB-debugging-enabled phone:
+- Debug: `app/build/outputs/apk/debug/app-debug.apk`
+- Release: `app/build/outputs/apk/release/app-release.apk`
 
-```bash
-adb devices
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+> Using the Gradle wrapper instead? Replace the gradle path with `./gradlew`.
+
+> Note: `assembleRelease` builds an unsigned APK unless signing is configured — fine for sideloading, but Play Store upload needs a signed bundle.
+
+## ▶️ Run on a device (USB debugging)
+
+1. On the phone: **Settings → About phone → tap Build number 7 times** → Developer options enabled
+2. **Developer options → enable USB debugging**
+3. Connect the phone via USB and accept the authorization prompt
+4. Verify the device is detected:
+   ```bash
+   adb devices
+   ```
+5. Build, install & launch in one command:
+   ```bash
+   ~/.local/opt/gradle-8.9/bin/gradle --no-daemon --max-workers=1 installDebug && adb shell monkey -p com.masud.moneymanager 1
+   ```
+
+## 📲 Install the APK manually
+
+1. Copy `app-debug.apk` (or `app-release.apk`) to your phone — via USB, Bluetooth, Drive, etc.
+2. Open it with a file manager
+3. When prompted, allow **"Install unknown apps"** for that app
+4. Tap **Install**
+
+## 🗺️ Project map
+
+```
+app/src/main/
+├── AndroidManifest.xml                      # app label: "Tk Koi Gelo"
+├── java/com/masud/moneymanager/
+│   ├── MainActivity.kt                      # entry point, bottom nav, backup/import wiring
+│   ├── data/
+│   │   ├── AppDatabase.kt                   # Room database singleton
+│   │   ├── TransactionEntity.kt / TransactionDao.kt
+│   │   ├── CategoryEntity.kt / CategoryDao.kt          # dynamic categories
+│   │   ├── LoanEntity.kt / LoanDao.kt
+│   │   ├── LoanRepaymentEntity.kt
+│   │   ├── AccountEntity.kt / AccountDao.kt
+│   │   ├── AccountEntryEntity.kt
+│   │   └── BackupManager.kt                 # Excel (.xlsx) + JSON export/import
+│   └── ui/
+│       ├── Theme.kt                         # MoneyManagerTheme
+│       ├── HomeScreen.kt                    # Monthly / Calendar / Accounts tabs
+│       ├── LoansScreen.kt                   # Loan Manager screen
+│       ├── SettingsScreen.kt                # settings, currency, backup, categories
+│       ├── UiUtils.kt                       # currency list, formatters, shared helpers
+│       ├── AddTransactionDialog.kt
+│       ├── EditTransactionDialog.kt
+│       ├── CategoryManagementSheet.kt
+│       └── YearMonthPickerSheets.kt
+└── res/mipmap-*/                             # launcher icons (red ৳)
 ```
 
-## Project map
-- `MainActivity.kt`: Compose screen, add/delete transactions, backup/import UI
-- `data/TransactionEntity.kt`: Room table model
-- `data/TransactionDao.kt`: local database operations
-- `data/AppDatabase.kt`: Room database singleton
-- `data/JsonBackup.kt`: JSON serialization and validation
+## 💾 Backup & restore
 
-## Important starter limitations
-- This is a starter/MVP, not yet the complete planned app.
-- JSON import appends imported transactions to existing data; it does not erase current data.
-- Loan/repayment module, search/filter, editable transactions, category management, and currency settings are not implemented yet.
-- Before importing an unfamiliar JSON backup, keep a separate copy. The app validates transaction type and positive amount but this is not a signed backup format.
-- No INTERNET permission is declared in the manifest. Gradle may need internet while building to download dependencies.
+- **Export:** Settings → _Backup app data_ → choose Excel (.xlsx) or JSON
+- **Import:** Settings → _Import Data_ → pick a backup file → current data is replaced after confirmation
+- ⚠️ Tip: export a backup first before importing an unfamiliar file — import replaces all current data.
+
+## 🛠️ Tech stack
+
+- Kotlin + Jetpack Compose (Material 3)
+- Room (SQLite) — offline-first, no server, no INTERNET permission
+- Apache POI — Excel (.xlsx) export
+- Coroutines + Flow
+
+---
+
+Built with ❤️ by Masud ibn Belat
