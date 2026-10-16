@@ -1,9 +1,39 @@
-
+// FILE: app/build.gradle
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+// ---- Automatic versioning from git tag ----
+// versionName = latest git tag  (v1.2 -> "1.2")
+// versionCode = total commit count (always increases, never edit by hand)
+// No git / no tag -> safe fallback "1.0" / 1, build never breaks.
+def getVersionName = { ->
+    try {
+        def out = new ByteArrayOutputStream()
+        exec {
+            commandLine "git", "describe", "--tags", "--abbrev=0"
+            standardOutput = out
+        }
+        return out.toString().trim().replaceFirst(/^v/, "")
+    } catch (Exception ignored) {
+        return "1.0"
+    }
+}
+
+def getVersionCode = { ->
+    try {
+        def out = new ByteArrayOutputStream()
+        exec {
+            commandLine "git", "rev-list", "--count", "HEAD"
+            standardOutput = out
+        }
+        return out.toString().trim().toInteger()
+    } catch (Exception ignored) {
+        return 1
+    }
 }
 
 android {
@@ -14,8 +44,8 @@ android {
         applicationId = "com.masud.moneymanager"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = getVersionCode()
+        versionName = getVersionName()
     }
 
     buildFeatures {
@@ -34,7 +64,7 @@ android {
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
-    
+
     implementation("org.apache.poi:poi-ooxml:5.2.5")
 
 
