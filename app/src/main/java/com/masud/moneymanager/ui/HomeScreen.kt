@@ -716,10 +716,16 @@ private fun TasksTab(
         val totalAmount = tasks.sumOf { it.amount }
 
         Column(modifier = Modifier.fillMaxSize()) {
-                // Total amount header
+                // Total amount header — uporer corner square, nicher corner rounded
                 Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
+                        shape =
+                                RoundedCornerShape(
+                                        topStart = 0.dp,
+                                        topEnd = 0.dp,
+                                        bottomStart = 16.dp,
+                                        bottomEnd = 16.dp
+                                ),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
                         border =
                                 BorderStroke(
@@ -919,6 +925,7 @@ private fun TaskRow(
         onEdit: () -> Unit
 ) {
         val accent = MaterialTheme.colorScheme.primary
+        val reminderLabel = taskReminderLabel(task)
         Surface(
                 onClick = onEdit,
                 modifier = Modifier.fillMaxWidth(),
@@ -927,7 +934,7 @@ private fun TaskRow(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
                 Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -937,7 +944,7 @@ private fun TaskRow(
                                 Text(
                                         task.title,
                                         fontWeight = FontWeight.SemiBold,
-                                        fontSize = 15.sp,
+                                        fontSize = 14.sp,
                                         maxLines = 2,
                                         textDecoration =
                                                 if (task.isDone) TextDecoration.LineThrough
@@ -956,49 +963,72 @@ private fun TaskRow(
                                                 modifier = Modifier.padding(top = 2.dp)
                                         )
                                 }
-                                if (task.amount > 0) {
-                                        Text(
-                                                formatMoney(task.amount, currency),
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = accent,
-                                                modifier = Modifier.padding(top = 2.dp)
-                                        )
-                                }
-                                taskReminderLabel(task)?.let { label ->
-                                        Surface(
-                                                shape = RoundedCornerShape(8.dp),
-                                                color = accent.copy(alpha = 0.10f),
-                                                border =
-                                                        BorderStroke(
-                                                                1.dp,
-                                                                accent.copy(alpha = 0.25f)
-                                                        ),
-                                                modifier = Modifier.padding(top = 6.dp)
+                                // Amount + date/time ek line e — card height kombe
+                                if (task.amount > 0 || reminderLabel != null) {
+                                        Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                modifier = Modifier.padding(top = 4.dp)
                                         ) {
-                                                Row(
-                                                        modifier =
-                                                                Modifier.padding(
-                                                                        horizontal = 8.dp,
-                                                                        vertical = 4.dp
-                                                                ),
-                                                        verticalAlignment =
-                                                                Alignment.CenterVertically,
-                                                        horizontalArrangement =
-                                                                Arrangement.spacedBy(4.dp)
-                                                ) {
-                                                        Icon(
-                                                                Icons.Default.Notifications,
-                                                                contentDescription = null,
-                                                                tint = accent,
-                                                                modifier = Modifier.size(12.dp)
-                                                        )
+                                                if (task.amount > 0) {
                                                         Text(
-                                                                label,
-                                                                fontSize = 11.sp,
-                                                                color = accent,
-                                                                fontWeight = FontWeight.Medium
+                                                                formatMoney(task.amount, currency),
+                                                                fontSize = 13.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = accent
                                                         )
+                                                }
+                                                reminderLabel?.let { label ->
+                                                        Surface(
+                                                                shape = RoundedCornerShape(8.dp),
+                                                                color = accent.copy(alpha = 0.10f),
+                                                                border =
+                                                                        BorderStroke(
+                                                                                1.dp,
+                                                                                accent.copy(
+                                                                                        alpha =
+                                                                                                0.25f
+                                                                                )
+                                                                        ),
+                                                        ) {
+                                                                Row(
+                                                                        modifier =
+                                                                                Modifier.padding(
+                                                                                        horizontal =
+                                                                                                8.dp,
+                                                                                        vertical =
+                                                                                                4.dp
+                                                                                ),
+                                                                        verticalAlignment =
+                                                                                Alignment
+                                                                                        .CenterVertically,
+                                                                        horizontalArrangement =
+                                                                                Arrangement
+                                                                                        .spacedBy(
+                                                                                                4.dp
+                                                                                        )
+                                                                ) {
+                                                                        Icon(
+                                                                                Icons.Default
+                                                                                        .Notifications,
+                                                                                contentDescription =
+                                                                                        null,
+                                                                                tint = accent,
+                                                                                modifier =
+                                                                                        Modifier.size(
+                                                                                                12.dp
+                                                                                        )
+                                                                        )
+                                                                        Text(
+                                                                                label,
+                                                                                fontSize = 11.sp,
+                                                                                color = accent,
+                                                                                fontWeight =
+                                                                                        FontWeight
+                                                                                                .Medium
+                                                                        )
+                                                                }
+                                                        }
                                                 }
                                         }
                                 }
@@ -1586,7 +1616,7 @@ private fun AccountsTab(
                 } else {
                         LazyColumn(
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                                contentPadding = PaddingValues(bottom = 90.dp)
+                                contentPadding = PaddingValues(top = 8.dp, bottom = 90.dp)
                         ) {
                                 items(accounts, key = { it.id }) { account ->
                                         AccountCard(
@@ -1921,154 +1951,6 @@ private fun AccountDetailSheet(
                                                 fontSize = 30.sp,
                                                 fontWeight = FontWeight.Bold
                                         )
-                                }
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-
-                        Button(
-                                onClick = { showAddForm = !showAddForm },
-                                modifier = Modifier.fillMaxWidth().height(50.dp),
-                                shape = RoundedCornerShape(16.dp)
-                        ) {
-                                Icon(
-                                        if (showAddForm) Icons.Default.Close else Icons.Default.Add,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                        if (showAddForm) "Hide" else "Add money",
-                                        fontWeight = FontWeight.Bold
-                                )
-                        }
-
-                        AnimatedVisibility(
-                                visible = showAddForm,
-                                enter = fadeIn() + expandVertically(),
-                                exit = fadeOut() + shrinkVertically()
-                        ) {
-                                Column {
-                                        Spacer(Modifier.height(12.dp))
-                                        OutlinedTextField(
-                                                value = amount,
-                                                onValueChange = {
-                                                        amount = sanitizeAmountInput(it)
-                                                        error = null
-                                                },
-                                                placeholder = { Text("Amount") },
-                                                singleLine = true,
-                                                keyboardOptions =
-                                                        KeyboardOptions(
-                                                                keyboardType = KeyboardType.Decimal
-                                                        ),
-                                                shape = RoundedCornerShape(16.dp),
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors =
-                                                        OutlinedTextFieldDefaults.colors(
-                                                                unfocusedContainerColor =
-                                                                        MaterialTheme.colorScheme
-                                                                                .surface,
-                                                                focusedContainerColor =
-                                                                        MaterialTheme.colorScheme
-                                                                                .surface
-                                                        )
-                                        )
-                                        Spacer(Modifier.height(8.dp))
-                                        OutlinedTextField(
-                                                value = note,
-                                                onValueChange = { note = it },
-                                                placeholder = { Text("Note (optional)") },
-                                                singleLine = true,
-                                                shape = RoundedCornerShape(16.dp),
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors =
-                                                        OutlinedTextFieldDefaults.colors(
-                                                                unfocusedContainerColor =
-                                                                        MaterialTheme.colorScheme
-                                                                                .surface,
-                                                                focusedContainerColor =
-                                                                        MaterialTheme.colorScheme
-                                                                                .surface
-                                                        )
-                                        )
-                                        Spacer(Modifier.height(8.dp))
-                                        Surface(
-                                                onClick = { showDatePicker = true },
-                                                shape = RoundedCornerShape(16.dp),
-                                                color = MaterialTheme.colorScheme.surface,
-                                                border =
-                                                        BorderStroke(
-                                                                1.dp,
-                                                                MaterialTheme.colorScheme.outline
-                                                        ),
-                                                modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                                Row(
-                                                        Modifier.padding(
-                                                                horizontal = 14.dp,
-                                                                vertical = 14.dp
-                                                        ),
-                                                        verticalAlignment =
-                                                                Alignment.CenterVertically,
-                                                        horizontalArrangement =
-                                                                Arrangement.spacedBy(10.dp)
-                                                ) {
-                                                        Icon(
-                                                                Icons.Default.CalendarMonth,
-                                                                contentDescription = null,
-                                                                tint =
-                                                                        MaterialTheme.colorScheme
-                                                                                .onSurfaceVariant
-                                                        )
-                                                        Text(dateLabel, fontSize = 14.sp)
-                                                }
-                                        }
-                                        AnimatedVisibility(visible = error != null) {
-                                                Text(
-                                                        error ?: "",
-                                                        color = MaterialTheme.colorScheme.error,
-                                                        fontSize = 12.sp,
-                                                        modifier = Modifier.padding(top = 6.dp)
-                                                )
-                                        }
-                                        Spacer(Modifier.height(10.dp))
-                                        Button(
-                                                onClick = {
-                                                        val v = amount.trim().toDoubleOrNull()
-                                                        when {
-                                                                v == null ||
-                                                                        !v.isFinite() ||
-                                                                        v <= 0.0 ->
-                                                                        error =
-                                                                                "Enter a valid amount."
-                                                                else -> {
-                                                                        scope.launch {
-                                                                                dao.insertEntry(
-                                                                                        AccountEntryEntity(
-                                                                                                accountId =
-                                                                                                        account.id,
-                                                                                                amount =
-                                                                                                        v,
-                                                                                                note =
-                                                                                                        note.trim(),
-                                                                                                createdAt =
-                                                                                                        entryDate
-                                                                                        )
-                                                                                )
-                                                                        }
-                                                                        amount = ""
-                                                                        note = ""
-                                                                        error = null
-                                                                        entryDate =
-                                                                                System.currentTimeMillis()
-                                                                        showAddForm = false
-                                                                }
-                                                        }
-                                                },
-                                                modifier = Modifier.fillMaxWidth().height(50.dp),
-                                                shape = RoundedCornerShape(16.dp)
-                                        ) { Text("Save", fontWeight = FontWeight.Bold) }
                                 }
                         }
 
