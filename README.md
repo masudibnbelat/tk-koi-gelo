@@ -22,37 +22,37 @@ For anyone who just wants to install and use the app (no coding needed).
 
 ## Step 1 — Download the APK
 
-**Phone diye directly:**
+**Directly on your phone:**
 
-1. Phone er browser (Chrome) open koro
-2. GitHub repo link e jao
-3. Dan dike **"Releases"** e tap koro
-4. Latest version (e.g. `v1.0.0`) te tap koro
-5. **"Assets"** section er niche `app-release.apk` file e tap koro → download start hobe
+1. Open your phone's browser (Chrome)
+2. Go to the GitHub repository link
+3. Tap **"Releases"** on the right side
+4. Tap the latest version (e.g. `v1.0.0`)
+5. Under the **"Assets"** section, tap the `app-release.apk` file → the download will start
 
-**Computer diye download kore phone e pathate chaile:**
+**Download on a computer and send it to your phone:**
 
-1. Computer er browser e GitHub Releases page theke `app-release.apk` download koro
-2. Phone e pathao — USB cable / Bluetooth / WhatsApp / Google Drive jekono vabe
-3. Phone e file ta **Downloads** folder e thakbe
+1. On your computer's browser, download `app-release.apk` from the GitHub Releases page
+2. Send it to your phone — via USB cable, Bluetooth, WhatsApp, Google Drive, or any method you like
+3. The file will be in the phone's **Downloads** folder
 
-## Step 2 — Install koro
+## Step 2 — Install it
 
-1. Notification theke **"Download complete"** te tap koro — athoba **Files / My Files** app open kore **Downloads** folder e jao
-2. `app-release.apk` file e tap koro
-3. Jodi Android block kore ("Install blocked" / "Unknown apps" warning ashe):
-   - Popup e **"Settings"** te tap koro
-   - **"Allow from this source"** ON koro
-   - Back button chepe fire asho
-4. Ebar **"Install"** button e tap koro
-5. Install sesh hole **"Done"** ba **"Open"** e tap koro
+1. Tap the **"Download complete"** notification — or open the **Files / My Files** app and go to the **Downloads** folder
+2. Tap the `app-release.apk` file
+3. If Android blocks it ("Install blocked" / unknown apps warning):
+   - Tap **"Settings"** on the popup
+   - Turn ON **"Allow from this source"**
+   - Press back to return
+4. Now tap the **"Install"** button
+5. When finished, tap **"Done"** or **"Open"**
 
-## Step 3 — App open koro
+## Step 3 — Open the app
 
-1. Home screen / app drawer e **"Tk Koi Gelo"** (red ৳ icon) khujo
-2. Tap kore open koro — bas, use kora start!
+1. Find **"Tk Koi Gelo"** (red ৳ icon) on your home screen or app drawer
+2. Tap to open — that's it, you're ready to use it!
 
-> 💡 Tip: Settings → _Backup app data_ theke majhe majhe backup niye rakho, data safe thakbe.
+> 💡 Tip: Take a backup from time to time via Settings → _Backup app data_, so your data stays safe.
 
 ---
 
@@ -65,70 +65,70 @@ For developers who want to build the app from source.
 - **JDK 17**
 - **Android SDK:** Platform 35, Build Tools 35.0.0
 - **Gradle 8.9**
-- USB debugging enabled Android device (direct install er jonno)
-- First build e internet lagbe (Gradle dependencies download); pore cached thakle offline eo cholbe
+- An Android device with USB debugging enabled (for direct install)
+- Internet on the first build (Gradle downloads dependencies); later builds can work offline once cached
 
-## 2. Code clone koro
+## 2. Clone the code
 
 ```bash
 git clone <repository-url>
 cd TkKoiGelo
 ```
 
-> `<repository-url>` er jaygay tomar GitHub repo link boshao.
+> Replace `<repository-url>` with your GitHub repository link.
 
-## 3. Code open koro
+## 3. Open the code
 
 **VS Code:**
 
-1. `TkKoiGelo` folder ta VS Code e open koro
-2. Chaile Kotlin / Gradle extension install kore nio (syntax highlight er jonno)
+1. Open the `TkKoiGelo` folder in VS Code
+2. Optionally install the Kotlin / Gradle extensions for syntax highlighting
 
 **Android Studio:**
 
-1. **File → Open** → `TkKoiGelo` folder select koro
-2. Gradle sync sesh howa porjonto wait koro
+1. **File → Open** → select the `TkKoiGelo` folder
+2. Wait for the Gradle sync to finish
 
-## 4. Device e install koro (USB debugging)
+## 4. Install on a device (USB debugging)
 
-**Phone ready koro:**
+**Prepare the phone:**
 
-1. **Settings → About phone → Build number** e 7 bar tap koro → Developer options on hobe
-2. **Developer options → USB debugging** ON koro
-3. USB diye phone computer e lagao, authorization popup e **Allow** dao
-4. Device detect hocche kina check koro:
+1. **Settings → About phone → tap Build number 7 times** → Developer options will be enabled
+2. **Developer options → turn on USB debugging**
+3. Connect the phone via USB and tap **Allow** on the authorization prompt
+4. Check that the device is detected:
    ```bash
    adb devices
    ```
 
-**Build + install + launch (ek command e):**
+**Build + install + launch (single command):**
 
 ```bash
 ~/.local/opt/gradle-8.9/bin/gradle --no-daemon --max-workers=1 installDebug && adb shell monkey -p com.masud.moneymanager 1
 ```
 
-> Gradle wrapper use korte chaile `~/.local/opt/gradle-8.9/bin/gradle` er bodle `./gradlew` likho.
+> Prefer the Gradle wrapper? Replace the gradle path with `./gradlew`.
 
-## 5. APK generate koro
+## 5. Generate the APK
 
 ```bash
-# Debug APK (nijer device e test er jonno)
+# Debug APK (for testing on your own device)
 ~/.local/opt/gradle-8.9/bin/gradle --no-daemon --max-workers=1 assembleDebug
 
-# Release APK (share / GitHub release er jonno)
+# Release APK (for sharing / GitHub releases)
 ~/.local/opt/gradle-8.9/bin/gradle --no-daemon --max-workers=1 assembleRelease
 ```
 
-> Note: `assembleRelease` signing configure na thakle unsigned APK banabe — sideload e cholbe, kintu Play Store e dite signed bundle lagbe.
+> Note: `assembleRelease` produces an unsigned APK unless signing is configured — fine for sideloading, but the Play Store requires a signed bundle.
 
 ## 6. APK location
 
-Build sesh hole APK paba ekhane:
+After the build finishes, you'll find the APK here:
 
 - **Debug:** `app/build/outputs/apk/debug/app-debug.apk`
 - **Release:** `app/build/outputs/apk/release/app-release.apk`
 
-Ei APK file tai user der majhe share korba / GitHub Releases e upload korba.
+Share this APK file with users or upload it to GitHub Releases.
 
 ---
 
