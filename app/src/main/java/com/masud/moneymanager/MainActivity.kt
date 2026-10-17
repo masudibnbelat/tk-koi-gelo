@@ -2,6 +2,7 @@
 package com.masud.moneymanager
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -75,17 +76,25 @@ import com.masud.moneymanager.ui.HomeScreen
 import com.masud.moneymanager.ui.LoansScreen
 import com.masud.moneymanager.ui.MoneyManagerTheme
 import com.masud.moneymanager.ui.SettingsScreen
+import com.masud.moneymanager.widget.EXTRA_ADD_TASK
+import com.masud.moneymanager.widget.EXTRA_EDIT_TASK_ID
+import com.masud.moneymanager.widget.EXTRA_OPEN_TASKS
+import com.masud.moneymanager.widget.TaskDeepLink
 import kotlinx.coroutines.launch
 
 private data class NavItem(
-    val route: String,
-    val label: String,
-    val icon: ImageVector,
+        val route: String,
+        val label: String,
+        val icon: ImageVector,
 )
 
 class MainActivity : ComponentActivity() {
+
+    private val taskDeepLinkState = mutableStateOf(TaskDeepLink())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        taskDeepLinkState.value = intent.toTaskDeepLink()
         enableEdgeToEdge() // status bar app background er sathe blend hobe
         setContent {
             val context = LocalContext.current
@@ -100,181 +109,216 @@ class MainActivity : ComponentActivity() {
 
             val backupDate = remember {
                 java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                    .format(java.util.Date())
+                        .format(java.util.Date())
             }
 
             // Status bar icon color theme onujayi (dark theme e sada icon)
             SideEffect {
                 val window = (context as Activity).window
                 WindowCompat.getInsetsController(window, window.decorView)
-                    .isAppearanceLightStatusBars = !darkTheme
+                        .isAppearanceLightStatusBars = !darkTheme
             }
 
             // Dynamic categories — DB theke live asbe
-            val expenseCats by db.categoryDao()
-                .observeByType("EXPENSE")
-                .collectAsState(initial = emptyList())
-            val incomeCats by db.categoryDao()
-                .observeByType("INCOME")
-                .collectAsState(initial = emptyList())
+            val expenseCats by
+                    db.categoryDao().observeByType("EXPENSE").collectAsState(initial = emptyList())
+            val incomeCats by
+                    db.categoryDao().observeByType("INCOME").collectAsState(initial = emptyList())
 
             // Backup / import file pickers
-            val jsonExportLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.CreateDocument("application/json")
-            ) { uri ->
-                uri?.let {
-                    scope.launch {
-                        try {
-                            BackupManager.exportJson(context, db, it)
-                            Toast.makeText(context, "JSON backup saved", Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Backup failed", Toast.LENGTH_LONG).show()
+            val jsonExportLauncher =
+                    rememberLauncherForActivityResult(
+                            ActivityResultContracts.CreateDocument("application/json")
+                    ) { uri ->
+                        uri?.let {
+                            scope.launch {
+                                try {
+                                    BackupManager.exportJson(context, db, it)
+                                    Toast.makeText(context, "JSON backup saved", Toast.LENGTH_SHORT)
+                                            .show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Backup failed", Toast.LENGTH_LONG)
+                                            .show()
+                                }
+                            }
                         }
                     }
-                }
-            }
-            val excelExportLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.CreateDocument(
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            ) { uri ->
-                uri?.let {
-                    scope.launch {
-                        try {
-                            BackupManager.exportExcel(context, db, it)
-                            Toast.makeText(context, "Excel backup saved", Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Backup failed", Toast.LENGTH_LONG).show()
+            val excelExportLauncher =
+                    rememberLauncherForActivityResult(
+                            ActivityResultContracts.CreateDocument(
+                                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
+                    ) { uri ->
+                        uri?.let {
+                            scope.launch {
+                                try {
+                                    BackupManager.exportExcel(context, db, it)
+                                    Toast.makeText(
+                                                    context,
+                                                    "Excel backup saved",
+                                                    Toast.LENGTH_SHORT
+                                            )
+                                            .show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Backup failed", Toast.LENGTH_LONG)
+                                            .show()
+                                }
+                            }
                         }
                     }
-                }
-            }
-            val importLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.OpenDocument()
-            ) { uri ->
-                uri?.let {
-                    scope.launch {
-                        try {
-                            val count = BackupManager.importFile(context, db, it)
-                            Toast.makeText(context, "Import complete: $count items", Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Import failed", Toast.LENGTH_LONG).show()
+            val importLauncher =
+                    rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri
+                        ->
+                        uri?.let {
+                            scope.launch {
+                                try {
+                                    val count = BackupManager.importFile(context, db, it)
+                                    Toast.makeText(
+                                                    context,
+                                                    "Import complete: $count items",
+                                                    Toast.LENGTH_SHORT
+                                            )
+                                            .show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Import failed", Toast.LENGTH_LONG)
+                                            .show()
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            val navItems = listOf(
-                NavItem("home", "Home", Icons.Rounded.Home),
-                NavItem("loans", "Loans", Icons.Rounded.AccountBalanceWallet),
-                NavItem("settings", "Settings", Icons.Rounded.Settings),
-            )
+            val navItems =
+                    listOf(
+                            NavItem("home", "Home", Icons.Rounded.Home),
+                            NavItem("loans", "Loans", Icons.Rounded.AccountBalanceWallet),
+                            NavItem("settings", "Settings", Icons.Rounded.Settings),
+                    )
 
             MoneyManagerTheme(darkTheme = darkTheme) {
                 Scaffold(
-                    bottomBar = {
-                        FancyBottomNav(
-                            items = navItems,
-                            currentRoute = currentRoute,
-                            onSelect = { currentRoute = it }
-                        )
-                    }
+                        bottomBar = {
+                            FancyBottomNav(
+                                    items = navItems,
+                                    currentRoute = currentRoute,
+                                    onSelect = { currentRoute = it }
+                            )
+                        }
                 ) { padding ->
                     Box(modifier = Modifier.padding(padding)) {
                         when (currentRoute) {
-                            "home" -> HomeScreen(
-                                db = db,
-                                currency = currency,
-                                onAddTransaction = { showAddDialog = true },
-                            )
-                            "loans" -> LoansScreen(
-                                db = db,
-                                currency = currency,
-                            )
-                            "settings" -> SettingsScreen(
-                                db = db,
-                                currency = currency,
-                                onCurrencyChange = { currency = it },
-                                darkTheme = darkTheme,
-                                onDarkThemeChange = { darkTheme = it },
-                                onExportBackup = {
-                                    jsonExportLauncher.launch("MoneyManager-Backup-$backupDate.json")
-                                },
-                                onExportExcel = {
-                                    excelExportLauncher.launch("MoneyManager-Backup-$backupDate.xlsx")
-                                },
-                                onImportBackup = { showImportConfirm = true },
-                                onClearAllData = {
-                                    scope.launch { db.transactionDao().deleteAll() }
-                                },
-                                onContactDeveloper = { /* TODO: open email */ },
-                            )
+                            "home" ->
+                                    HomeScreen(
+                                            db = db,
+                                            currency = currency,
+                                            onAddTransaction = { showAddDialog = true },
+                                            taskDeepLink = taskDeepLinkState.value,
+                                            onTaskDeepLinkConsumed = {
+                                                taskDeepLinkState.value = TaskDeepLink()
+                                            },
+                                    )
+                            "loans" ->
+                                    LoansScreen(
+                                            db = db,
+                                            currency = currency,
+                                    )
+                            "settings" ->
+                                    SettingsScreen(
+                                            db = db,
+                                            currency = currency,
+                                            onCurrencyChange = { currency = it },
+                                            darkTheme = darkTheme,
+                                            onDarkThemeChange = { darkTheme = it },
+                                            onExportBackup = {
+                                                jsonExportLauncher.launch(
+                                                        "MoneyManager-Backup-$backupDate.json"
+                                                )
+                                            },
+                                            onExportExcel = {
+                                                excelExportLauncher.launch(
+                                                        "MoneyManager-Backup-$backupDate.xlsx"
+                                                )
+                                            },
+                                            onImportBackup = { showImportConfirm = true },
+                                            onClearAllData = {
+                                                scope.launch { db.transactionDao().deleteAll() }
+                                            },
+                                            onContactDeveloper = { /* TODO: open email */},
+                                    )
                         }
                     }
                 }
 
                 if (showAddDialog) {
                     AddTransactionDialog(
-                        currency = currency,
-                        expenseCategories = expenseCats.map { it.name },
-                        incomeCategories = incomeCats.map { it.name },
-                        onDismiss = { showAddDialog = false },
-                        onSave = { tx ->
-                            scope.launch { db.transactionDao().insert(tx) }
-                            showAddDialog = false
-                        },
+                            currency = currency,
+                            expenseCategories = expenseCats.map { it.name },
+                            incomeCategories = incomeCats.map { it.name },
+                            onDismiss = { showAddDialog = false },
+                            onSave = { tx ->
+                                scope.launch { db.transactionDao().insert(tx) }
+                                showAddDialog = false
+                            },
                     )
                 }
 
                 if (showImportConfirm) {
                     ImportConfirmSheet(
-                        onDismiss = { showImportConfirm = false },
-                        onChooseFile = {
-                            showImportConfirm = false
-                            importLauncher.launch(arrayOf("*/*"))
-                        }
+                            onDismiss = { showImportConfirm = false },
+                            onChooseFile = {
+                                showImportConfirm = false
+                                importLauncher.launch(arrayOf("*/*"))
+                            }
                     )
                 }
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        taskDeepLinkState.value = intent.toTaskDeepLink()
+    }
+
+    private fun Intent.toTaskDeepLink(): TaskDeepLink =
+            TaskDeepLink(
+                    nonce = System.currentTimeMillis(),
+                    openTasksTab = getBooleanExtra(EXTRA_OPEN_TASKS, false),
+                    openAddSheet = getBooleanExtra(EXTRA_ADD_TASK, false),
+                    editTaskId = getLongExtra(EXTRA_EDIT_TASK_ID, -1L).takeIf { it != -1L }
+            )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ImportConfirmSheet(
-    onDismiss: () -> Unit,
-    onChooseFile: () -> Unit
-) {
+private fun ImportConfirmSheet(onDismiss: () -> Unit, onChooseFile: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val error = MaterialTheme.colorScheme.error
     val green = Color(0xFF1ED760)
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.background,
-        dragHandle = { BottomSheetDefaults.DragHandle() }
+            onDismissRequest = onDismiss,
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 22.dp)
-                .padding(bottom = 28.dp)
+                modifier =
+                        Modifier.fillMaxWidth().padding(horizontal = 22.dp).padding(bottom = 28.dp)
         ) {
             // Warning icon — red tonal circle with border
             Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .background(error.copy(alpha = 0.12f), CircleShape)
-                    .border(1.dp, error.copy(alpha = 0.35f), CircleShape),
-                contentAlignment = Alignment.Center
+                    modifier =
+                            Modifier.size(64.dp)
+                                    .background(error.copy(alpha = 0.12f), CircleShape)
+                                    .border(1.dp, error.copy(alpha = 0.35f), CircleShape),
+                    contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Filled.WarningAmber,
-                    contentDescription = null,
-                    tint = error,
-                    modifier = Modifier.size(30.dp)
+                        Icons.Filled.WarningAmber,
+                        contentDescription = null,
+                        tint = error,
+                        modifier = Modifier.size(30.dp)
                 )
             }
 
@@ -283,70 +327,75 @@ private fun ImportConfirmSheet(
             Text("Import data?", fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Restore a backup file into MoneyManager. " +
-                    "Excel (.xlsx) and JSON (.json) files are supported.",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    "Restore a backup file into MoneyManager. " +
+                            "Excel (.xlsx) and JSON (.json) files are supported.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(Modifier.height(16.dp))
 
             // Supported formats card
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(MaterialTheme.colorScheme.surface)
-                    .border(
-                        1.dp,
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                        RoundedCornerShape(18.dp)
-                    )
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    modifier =
+                            Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .border(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.outlineVariant.copy(
+                                                    alpha = 0.6f
+                                            ),
+                                            RoundedCornerShape(18.dp)
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 ImportFormatRow(
-                    icon = Icons.Filled.TableChart,
-                    title = "Excel",
-                    subtitle = ".xlsx — transactions, loans, accounts & tasks in sheets",
-                    tint = green
+                        icon = Icons.Filled.TableChart,
+                        title = "Excel",
+                        subtitle = ".xlsx — transactions, loans, accounts & tasks in sheets",
+                        tint = green
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                )
                 ImportFormatRow(
-                    icon = Icons.Filled.DataObject,
-                    title = "JSON",
-                    subtitle = ".json — full backup, best for restore",
-                    tint = MaterialTheme.colorScheme.primary
+                        icon = Icons.Filled.DataObject,
+                        title = "JSON",
+                        subtitle = ".json — full backup, best for restore",
+                        tint = MaterialTheme.colorScheme.primary
                 )
             }
 
             Spacer(Modifier.height(12.dp))
 
             // Warning note — animated in
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn() + expandVertically()
-            ) {
+            AnimatedVisibility(visible = true, enter = fadeIn() + expandVertically()) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(error.copy(alpha = 0.08f))
-                        .border(1.dp, error.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier =
+                                Modifier.fillMaxWidth()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(error.copy(alpha = 0.08f))
+                                        .border(
+                                                1.dp,
+                                                error.copy(alpha = 0.3f),
+                                                RoundedCornerShape(16.dp)
+                                        )
+                                        .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Icon(
-                        Icons.Filled.WarningAmber,
-                        contentDescription = null,
-                        tint = error,
-                        modifier = Modifier.size(22.dp)
+                            Icons.Filled.WarningAmber,
+                            contentDescription = null,
+                            tint = error,
+                            modifier = Modifier.size(22.dp)
                     )
                     Text(
-                        "All current data on this device will be replaced by the backup.",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
+                            "All current data on this device will be replaced by the backup.",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -354,16 +403,14 @@ private fun ImportConfirmSheet(
             Spacer(Modifier.height(20.dp))
 
             Button(
-                onClick = onChooseFile,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(18.dp)
+                    onClick = onChooseFile,
+                    modifier = Modifier.fillMaxWidth().height(54.dp),
+                    shape = RoundedCornerShape(18.dp)
             ) {
                 Icon(
-                    Icons.Filled.FolderOpen,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
+                        Icons.Filled.FolderOpen,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text("Choose backup file", fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -371,10 +418,7 @@ private fun ImportConfirmSheet(
 
             Spacer(Modifier.height(4.dp))
 
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
                 Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -382,94 +426,83 @@ private fun ImportConfirmSheet(
 }
 
 @Composable
-private fun ImportFormatRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    tint: Color
-) {
+private fun ImportFormatRow(icon: ImageVector, title: String, subtitle: String, tint: Color) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(tint.copy(alpha = 0.12f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-        }
+                modifier = Modifier.size(40.dp).background(tint.copy(alpha = 0.12f), CircleShape),
+                contentAlignment = Alignment.Center
+        ) { Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp)) }
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text(
-                subtitle,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun FancyBottomNav(
-    items: List<NavItem>,
-    currentRoute: String,
-    onSelect: (String) -> Unit
-) {
+private fun FancyBottomNav(items: List<NavItem>, currentRoute: String, onSelect: (String) -> Unit) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 10.dp)
+            modifier =
+                    Modifier.fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
+                            .navigationBarsPadding()
+                            .padding(horizontal = 20.dp, vertical = 10.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(26.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(26.dp))
-                .padding(6.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+                modifier =
+                        Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(26.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(
+                                        1.dp,
+                                        MaterialTheme.colorScheme.outlineVariant,
+                                        RoundedCornerShape(26.dp)
+                                )
+                                .padding(6.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { item ->
                 val selected = currentRoute == item.route
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(
-                            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                            else Color.Transparent
-                        )
-                        .clickable { onSelect(item.route) }
-                        .padding(vertical = 8.dp)
-                        .animateContentSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        modifier =
+                                Modifier.weight(1f)
+                                        .clip(RoundedCornerShape(18.dp))
+                                        .background(
+                                                if (selected)
+                                                        MaterialTheme.colorScheme.primary.copy(
+                                                                alpha = 0.14f
+                                                        )
+                                                else Color.Transparent
+                                        )
+                                        .clickable { onSelect(item.route) }
+                                        .padding(vertical = 8.dp)
+                                        .animateContentSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(
-                        imageVector = item.icon,
-                        contentDescription = item.label,
-                        tint = if (selected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp)
+                            imageVector = item.icon,
+                            contentDescription = item.label,
+                            tint =
+                                    if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
                     )
                     AnimatedVisibility(
-                        visible = selected,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
+                            visible = selected,
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically()
                     ) {
                         Text(
-                            item.label,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(top = 2.dp)
+                                item.label,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 2.dp)
                         )
                     }
                 }

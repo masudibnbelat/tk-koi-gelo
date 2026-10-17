@@ -12,14 +12,17 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -56,7 +59,6 @@ fun LoansScreen(db: AppDatabase, currency: String = "BDT") {
         var showAddSheet by remember { mutableStateOf(false) }
         var selectedLoan by remember { mutableStateOf<LoanEntity?>(null) }
         var deleteTarget by remember { mutableStateOf<LoanEntity?>(null) }
-        // Payment add hole repayments abar load hobe — progress live update er jonno
         var repayTick by remember { mutableIntStateOf(0) }
         val symbol = currencySymbol(currency)
         val repayments by
@@ -71,7 +73,6 @@ fun LoansScreen(db: AppDatabase, currency: String = "BDT") {
         val toReceive = loans.filter { it.type == "LENT" }.sumOf { remainingOf(it) }
         val toPay = loans.filter { it.type == "BORROWED" }.sumOf { remainingOf(it) }
         Scaffold(
-                // MainActivity er Scaffold already inset dey — double hobe na
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 floatingActionButton = {
                         FloatingActionButton(
@@ -101,7 +102,6 @@ fun LoansScreen(db: AppDatabase, currency: String = "BDT") {
                                 color = MaterialTheme.colorScheme.onBackground
                         )
                         Spacer(Modifier.height(12.dp))
-                        // Minimal summary — soft tonal cards, border chara
                         Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -122,7 +122,6 @@ fun LoansScreen(db: AppDatabase, currency: String = "BDT") {
                                 )
                         }
                         Spacer(Modifier.height(10.dp))
-                        // Animated pill tabs — jelly bouncy selection, border chara
                         Row(
                                 modifier =
                                         Modifier.fillMaxWidth()
@@ -141,7 +140,6 @@ fun LoansScreen(db: AppDatabase, currency: String = "BDT") {
                                         val count =
                                                 if (i == 0) activeLoans.size
                                                 else completedLoans.size
-                                        // Jelly transformation — bouncy spring on bg
                                         val tabBg by
                                                 animateColorAsState(
                                                         targetValue =
@@ -243,12 +241,19 @@ fun LoansScreen(db: AppDatabase, currency: String = "BDT") {
                                 contentPadding = PaddingValues(bottom = 96.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                                items(displayed, key = { it.id }) { loan ->
+                                itemsIndexed(displayed, key = { _, it -> it.id }) { index, loan ->
+                                        val stagger = (index * 30).coerceAtMost(240)
                                         AnimatedVisibility(
                                                 visible = true,
                                                 enter =
-                                                        fadeIn(tween(300)) +
-                                                                expandVertically(tween(300)),
+                                                        fadeIn(tween(300, delayMillis = stagger)) +
+                                                                slideInVertically(
+                                                                        tween(
+                                                                                350,
+                                                                                delayMillis =
+                                                                                        stagger
+                                                                        )
+                                                                ) { -it / 2 },
                                                 exit = fadeOut() + shrinkVertically()
                                         ) {
                                                 LoanCard(
@@ -355,7 +360,6 @@ private fun LoanCard(loan: LoanEntity, repaid: Double, symbol: String, onClick: 
                 if (loan.principalAmount > 0)
                         (repaid / loan.principalAmount).toFloat().coerceIn(0f, 1f)
                 else 0f
-        // Smooth animated progress
         val animatedProgress by
                 animateFloatAsState(
                         targetValue = progress,
@@ -420,7 +424,6 @@ private fun LoanCard(loan: LoanEntity, repaid: Double, symbol: String, onClick: 
                                 )
                         }
                         Spacer(Modifier.height(12.dp))
-                        // Animated progress bar — baire thekei % bojha jabe
                         Box(
                                 modifier =
                                         Modifier.fillMaxWidth()
@@ -509,7 +512,6 @@ private fun AddLoanSheet(onDismiss: () -> Unit, onSave: (String, String, Double,
                                 }
                         }
                         Spacer(Modifier.height(18.dp))
-                        // Minimal type selector — border chara
                         Row(
                                 modifier =
                                         Modifier.fillMaxWidth()
@@ -659,7 +661,6 @@ private fun LoanDetailSheet(
         var payDate by remember { mutableStateOf(System.currentTimeMillis()) }
         var showPayDatePicker by remember { mutableStateOf(false) }
         var error by remember { mutableStateOf<String?>(null) }
-        // Form e kichu likhle top-right button Confirm hoye jabe, na likhle Cancel
         val hasPayData = payAmount.isNotBlank() || payNote.isNotBlank()
         val totalRepaid = repayments.sumOf { it.amount }
         val remaining = (loan.principalAmount - totalRepaid).coerceAtLeast(0.0)
@@ -704,7 +705,6 @@ private fun LoanDetailSheet(
                         }
                 }
         }
-        // Cancel <-> Confirm smooth color transition
         val topBtnColor by
                 animateColorAsState(
                         targetValue =
@@ -718,288 +718,314 @@ private fun LoanDetailSheet(
                 containerColor = MaterialTheme.colorScheme.background,
                 dragHandle = { BottomSheetDefaults.DragHandle() }
         ) {
-                Column(
-                        modifier =
-                                Modifier.fillMaxWidth()
-                                        .padding(horizontal = 22.dp)
-                                        .padding(bottom = 28.dp)
-                                        .animateContentSize()
-                ) {
-                        Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                                Box(
-                                        modifier =
-                                                Modifier.size(52.dp)
-                                                        .background(
-                                                                accent.copy(alpha = 0.12f),
-                                                                CircleShape
-                                                        ),
-                                        contentAlignment = Alignment.Center
-                                ) {
-                                        Text(
-                                                loan.personName.firstOrNull()?.uppercase() ?: "?",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 20.sp,
-                                                color = accent
-                                        )
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                                loan.personName,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 18.sp
-                                        )
-                                        Text(
-                                                if (isLent) "You lent" else "You borrowed",
-                                                fontSize = 13.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                }
-                                // Top-right conditional button — Cancel (default) / Confirm (data
-                                // thakle)
-                                // Uporer corner square, nicher corner rounded (tab style)
-                                Button(
-                                        onClick = {
-                                                if (hasPayData) confirmPayment() else onDismiss()
-                                        },
-                                        modifier = Modifier.height(40.dp).animateContentSize(),
-                                        shape =
-                                                RoundedCornerShape(
-                                                        topStart = 0.dp,
-                                                        topEnd = 0.dp,
-                                                        bottomStart = 14.dp,
-                                                        bottomEnd = 14.dp
-                                                ),
-                                        colors =
-                                                ButtonDefaults.buttonColors(
-                                                        containerColor = topBtnColor,
-                                                        contentColor =
-                                                                if (hasPayData) Color.White
-                                                                else
-                                                                        MaterialTheme.colorScheme
-                                                                                .onSurfaceVariant
-                                                ),
-                                        contentPadding =
-                                                PaddingValues(horizontal = 18.dp, vertical = 0.dp)
-                                ) {
-                                        Text(
-                                                if (hasPayData) "Confirm" else "Cancel",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp
-                                        )
-                                }
-                        }
-                        Spacer(Modifier.height(18.dp))
-                        // Remaining hero — minimal, border chara
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp)) {
                         Column(
                                 modifier =
-                                        Modifier.fillMaxWidth()
-                                                .clip(RoundedCornerShape(20.dp))
-                                                .background(accent.copy(alpha = 0.08f))
-                                                .padding(18.dp)
+                                        Modifier.weight(1f, fill = false)
+                                                .verticalScroll(rememberScrollState())
+                                                .imePadding()
                         ) {
-                                Text(
-                                        "Remaining",
-                                        fontSize = 12.sp,
-                                        color = accent,
-                                        fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                        "$symbol ${String.format(Locale.US, "%,.2f", remaining)}",
-                                        fontSize = 28.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                )
-                                Spacer(Modifier.height(10.dp))
-                                Box(
-                                        modifier =
-                                                Modifier.fillMaxWidth()
-                                                        .height(6.dp)
-                                                        .clip(CircleShape)
-                                                        .background(
-                                                                MaterialTheme.colorScheme
-                                                                        .surfaceVariant.copy(
-                                                                        alpha = 0.5f
-                                                                )
-                                                        )
+                                Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                         Box(
                                                 modifier =
-                                                        Modifier.fillMaxWidth(animatedProgress)
-                                                                .fillMaxHeight()
+                                                        Modifier.size(52.dp)
+                                                                .background(
+                                                                        accent.copy(alpha = 0.12f),
+                                                                        CircleShape
+                                                                ),
+                                                contentAlignment = Alignment.Center
+                                        ) {
+                                                Text(
+                                                        loan.personName.firstOrNull()?.uppercase()
+                                                                ?: "?",
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 20.sp,
+                                                        color = accent
+                                                )
+                                        }
+                                        Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                        loan.personName,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 18.sp
+                                                )
+                                                Text(
+                                                        if (isLent) "You lent" else "You borrowed",
+                                                        fontSize = 13.sp,
+                                                        color =
+                                                                MaterialTheme.colorScheme
+                                                                        .onSurfaceVariant
+                                                )
+                                        }
+                                        Button(
+                                                onClick = {
+                                                        if (hasPayData) confirmPayment()
+                                                        else onDismiss()
+                                                },
+                                                modifier =
+                                                        Modifier.height(40.dp).animateContentSize(),
+                                                shape =
+                                                        RoundedCornerShape(
+                                                                topStart = 0.dp,
+                                                                topEnd = 0.dp,
+                                                                bottomStart = 14.dp,
+                                                                bottomEnd = 14.dp
+                                                        ),
+                                                colors =
+                                                        ButtonDefaults.buttonColors(
+                                                                containerColor = topBtnColor,
+                                                                contentColor =
+                                                                        if (hasPayData) Color.White
+                                                                        else
+                                                                                MaterialTheme
+                                                                                        .colorScheme
+                                                                                        .onSurfaceVariant
+                                                        ),
+                                                contentPadding =
+                                                        PaddingValues(
+                                                                horizontal = 18.dp,
+                                                                vertical = 0.dp
+                                                        )
+                                        ) {
+                                                Text(
+                                                        if (hasPayData) "Confirm" else "Cancel",
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp
+                                                )
+                                        }
+                                }
+                                Spacer(Modifier.height(18.dp))
+                                Column(
+                                        modifier =
+                                                Modifier.fillMaxWidth()
+                                                        .clip(RoundedCornerShape(20.dp))
+                                                        .background(accent.copy(alpha = 0.08f))
+                                                        .padding(18.dp)
+                                ) {
+                                        Text(
+                                                "Remaining",
+                                                fontSize = 12.sp,
+                                                color = accent,
+                                                fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                                "$symbol ${String.format(Locale.US, "%,.2f", remaining)}",
+                                                fontSize = 28.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onBackground
+                                        )
+                                        Spacer(Modifier.height(10.dp))
+                                        Box(
+                                                modifier =
+                                                        Modifier.fillMaxWidth()
+                                                                .height(6.dp)
                                                                 .clip(CircleShape)
-                                                                .background(accent)
+                                                                .background(
+                                                                        MaterialTheme.colorScheme
+                                                                                .surfaceVariant
+                                                                                .copy(alpha = 0.5f)
+                                                                )
+                                        ) {
+                                                Box(
+                                                        modifier =
+                                                                Modifier.fillMaxWidth(
+                                                                                animatedProgress
+                                                                        )
+                                                                        .fillMaxHeight()
+                                                                        .clip(CircleShape)
+                                                                        .background(accent)
+                                                )
+                                        }
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                                "${(animatedProgress * 100).roundToInt()}% · " +
+                                                        "$symbol ${String.format(Locale.US, "%,.2f", totalRepaid)} of " +
+                                                        "$symbol ${String.format(Locale.US, "%,.2f", loan.principalAmount)} repaid",
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                 }
-                                Spacer(Modifier.height(6.dp))
-                                Text(
-                                        "${(animatedProgress * 100).roundToInt()}% · " +
-                                                "$symbol ${String.format(Locale.US, "%,.2f", totalRepaid)} of " +
-                                                "$symbol ${String.format(Locale.US, "%,.2f", loan.principalAmount)} repaid",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                        }
-                        Spacer(Modifier.height(16.dp))
-                        Text("History", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Spacer(Modifier.height(8.dp))
-                        if (repayments.isEmpty()) {
-                                Text(
-                                        "No repayments yet.",
-                                        fontSize = 13.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                        } else {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        repayments.forEach { r ->
-                                                AnimatedVisibility(
-                                                        visible = true,
-                                                        enter =
-                                                                fadeIn(tween(250)) +
-                                                                        expandVertically(tween(250))
-                                                ) {
-                                                        Row(
-                                                                modifier =
-                                                                        Modifier.fillMaxWidth()
-                                                                                .clip(
-                                                                                        RoundedCornerShape(
-                                                                                                14.dp
-                                                                                        )
+                                Spacer(Modifier.height(16.dp))
+                                Text("History", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Spacer(Modifier.height(8.dp))
+                                if (repayments.isEmpty()) {
+                                        Text(
+                                                "No repayments yet.",
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(vertical = 8.dp)
+                                        )
+                                } else {
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                repayments.forEach { r ->
+                                                        AnimatedVisibility(
+                                                                visible = true,
+                                                                enter =
+                                                                        fadeIn(tween(250)) +
+                                                                                expandVertically(
+                                                                                        tween(250)
                                                                                 )
-                                                                                .background(
-                                                                                        MaterialTheme
-                                                                                                .colorScheme
-                                                                                                .surface
-                                                                                )
-                                                                                .padding(14.dp),
-                                                                horizontalArrangement =
-                                                                        Arrangement.SpaceBetween,
-                                                                verticalAlignment =
-                                                                        Alignment.CenterVertically
                                                         ) {
-                                                                Column(
+                                                                Row(
                                                                         modifier =
-                                                                                Modifier.weight(1f)
+                                                                                Modifier.fillMaxWidth()
+                                                                                        .clip(
+                                                                                                RoundedCornerShape(
+                                                                                                        14.dp
+                                                                                                )
+                                                                                        )
+                                                                                        .background(
+                                                                                                MaterialTheme
+                                                                                                        .colorScheme
+                                                                                                        .surface
+                                                                                        )
+                                                                                        .padding(
+                                                                                                14.dp
+                                                                                        ),
+                                                                        horizontalArrangement =
+                                                                                Arrangement
+                                                                                        .SpaceBetween,
+                                                                        verticalAlignment =
+                                                                                Alignment
+                                                                                        .CenterVertically
                                                                 ) {
-                                                                        Text(
-                                                                                if (r.note.isNotBlank()
+                                                                        Column(
+                                                                                modifier =
+                                                                                        Modifier.weight(
+                                                                                                1f
+                                                                                        )
+                                                                        ) {
+                                                                                Text(
+                                                                                        if (r.note.isNotBlank()
+                                                                                        )
+                                                                                                r.note
+                                                                                        else
+                                                                                                "Repayment",
+                                                                                        fontSize =
+                                                                                                14.sp,
+                                                                                        fontWeight =
+                                                                                                FontWeight
+                                                                                                        .Medium,
+                                                                                        color =
+                                                                                                MaterialTheme
+                                                                                                        .colorScheme
+                                                                                                        .onSurface
                                                                                 )
-                                                                                        r.note
-                                                                                else "Repayment",
-                                                                                fontSize = 14.sp,
+                                                                                Text(
+                                                                                        SimpleDateFormat(
+                                                                                                        "dd MMM yyyy",
+                                                                                                        Locale.getDefault()
+                                                                                                )
+                                                                                                .format(
+                                                                                                        Date(
+                                                                                                                r.createdAt
+                                                                                                        )
+                                                                                                ),
+                                                                                        fontSize =
+                                                                                                11.sp,
+                                                                                        color =
+                                                                                                MaterialTheme
+                                                                                                        .colorScheme
+                                                                                                        .onSurfaceVariant
+                                                                                )
+                                                                        }
+                                                                        Text(
+                                                                                "$symbol ${String.format(Locale.US, "%,.2f", r.amount)}",
                                                                                 fontWeight =
                                                                                         FontWeight
-                                                                                                .Medium,
-                                                                                color =
-                                                                                        MaterialTheme
-                                                                                                .colorScheme
-                                                                                                .onSurface
-                                                                        )
-                                                                        Text(
-                                                                                SimpleDateFormat(
-                                                                                                "dd MMM yyyy",
-                                                                                                Locale.getDefault()
-                                                                                        )
-                                                                                        .format(
-                                                                                                Date(
-                                                                                                        r.createdAt
-                                                                                                )
-                                                                                        ),
-                                                                                fontSize = 11.sp,
-                                                                                color =
-                                                                                        MaterialTheme
-                                                                                                .colorScheme
-                                                                                                .onSurfaceVariant
+                                                                                                .Bold,
+                                                                                color = GreenSoft,
+                                                                                fontSize = 14.sp
                                                                         )
                                                                 }
-                                                                Text(
-                                                                        "$symbol ${String.format(Locale.US, "%,.2f", r.amount)}",
-                                                                        fontWeight =
-                                                                                FontWeight.Bold,
-                                                                        color = GreenSoft,
-                                                                        fontSize = 14.sp
-                                                                )
                                                         }
                                                 }
                                         }
                                 }
-                        }
-                        AnimatedVisibility(
-                                visible = showPayField && remaining > 0.001,
-                                enter = fadeIn() + expandVertically(),
-                                exit = fadeOut() + shrinkVertically()
-                        ) {
-                                Column {
-                                        Spacer(Modifier.height(12.dp))
-                                        OutlinedTextField(
-                                                value = payAmount,
-                                                onValueChange = {
-                                                        payAmount = sanitizeAmountInput(it)
-                                                        error = null
-                                                },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                placeholder = { Text("Repayment amount") },
-                                                singleLine = true,
-                                                keyboardOptions =
-                                                        KeyboardOptions(
-                                                                keyboardType = KeyboardType.Decimal
-                                                        ),
-                                                shape = RoundedCornerShape(16.dp),
-                                                colors =
-                                                        OutlinedTextFieldDefaults.colors(
-                                                                focusedBorderColor = accent
-                                                        )
-                                        )
-                                        Spacer(Modifier.height(8.dp))
-                                        OutlinedTextField(
-                                                value = payNote,
-                                                onValueChange = { payNote = it },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                placeholder = { Text("Note (optional)") },
-                                                shape = RoundedCornerShape(16.dp)
-                                        )
-                                        Spacer(Modifier.height(8.dp))
-                                        Surface(
-                                                onClick = { showPayDatePicker = true },
-                                                shape = RoundedCornerShape(16.dp),
-                                                color = MaterialTheme.colorScheme.surface,
-                                                modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                                Row(
-                                                        Modifier.padding(
-                                                                horizontal = 14.dp,
-                                                                vertical = 14.dp
-                                                        ),
-                                                        verticalAlignment =
-                                                                Alignment.CenterVertically,
-                                                        horizontalArrangement =
-                                                                Arrangement.spacedBy(10.dp)
+                                AnimatedVisibility(
+                                        visible = showPayField && remaining > 0.001,
+                                        enter = fadeIn() + expandVertically(),
+                                        exit = fadeOut() + shrinkVertically()
+                                ) {
+                                        Column {
+                                                Spacer(Modifier.height(12.dp))
+                                                OutlinedTextField(
+                                                        value = payAmount,
+                                                        onValueChange = {
+                                                                payAmount = sanitizeAmountInput(it)
+                                                                error = null
+                                                        },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        placeholder = { Text("Repayment amount") },
+                                                        singleLine = true,
+                                                        keyboardOptions =
+                                                                KeyboardOptions(
+                                                                        keyboardType =
+                                                                                KeyboardType.Decimal
+                                                                ),
+                                                        shape = RoundedCornerShape(16.dp),
+                                                        colors =
+                                                                OutlinedTextFieldDefaults.colors(
+                                                                        focusedBorderColor = accent
+                                                                )
+                                                )
+                                                Spacer(Modifier.height(8.dp))
+                                                OutlinedTextField(
+                                                        value = payNote,
+                                                        onValueChange = { payNote = it },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        placeholder = { Text("Note (optional)") },
+                                                        shape = RoundedCornerShape(16.dp)
+                                                )
+                                                Spacer(Modifier.height(8.dp))
+                                                Surface(
+                                                        onClick = { showPayDatePicker = true },
+                                                        shape = RoundedCornerShape(16.dp),
+                                                        color = MaterialTheme.colorScheme.surface,
+                                                        modifier = Modifier.fillMaxWidth()
                                                 ) {
-                                                        Icon(
-                                                                Icons.Default.CalendarMonth,
-                                                                contentDescription = null,
-                                                                tint =
+                                                        Row(
+                                                                Modifier.padding(
+                                                                        horizontal = 14.dp,
+                                                                        vertical = 14.dp
+                                                                ),
+                                                                verticalAlignment =
+                                                                        Alignment.CenterVertically,
+                                                                horizontalArrangement =
+                                                                        Arrangement.spacedBy(10.dp)
+                                                        ) {
+                                                                Icon(
+                                                                        Icons.Default.CalendarMonth,
+                                                                        contentDescription = null,
+                                                                        tint =
+                                                                                MaterialTheme
+                                                                                        .colorScheme
+                                                                                        .onSurfaceVariant
+                                                                )
+                                                                Text(payDateLabel, fontSize = 14.sp)
+                                                        }
+                                                }
+                                                error?.let {
+                                                        Text(
+                                                                it,
+                                                                color =
                                                                         MaterialTheme.colorScheme
-                                                                                .onSurfaceVariant
+                                                                                .error,
+                                                                fontSize = 13.sp,
+                                                                modifier =
+                                                                        Modifier.padding(top = 6.dp)
                                                         )
-                                                        Text(payDateLabel, fontSize = 14.sp)
                                                 }
                                         }
-                                        error?.let {
-                                                Text(
-                                                        it,
-                                                        color = MaterialTheme.colorScheme.error,
-                                                        fontSize = 13.sp,
-                                                        modifier = Modifier.padding(top = 6.dp)
-                                                )
-                                        }
                                 }
+                                Spacer(Modifier.height(8.dp))
                         }
-                        Spacer(Modifier.height(18.dp))
+
+                        Spacer(Modifier.height(12.dp))
                         Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1038,6 +1064,7 @@ private fun LoanDetailSheet(
                                         )
                                 }
                         }
+                        Spacer(Modifier.height(28.dp))
                 }
         }
         if (showPayDatePicker) {

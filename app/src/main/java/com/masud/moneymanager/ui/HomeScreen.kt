@@ -8,7 +8,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
@@ -21,12 +20,15 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,7 +36,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
@@ -82,7 +83,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -90,53 +94,76 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.glance.appwidget.updateAll
 import com.masud.moneymanager.data.AccountEntity
 import com.masud.moneymanager.data.AccountEntryEntity
 import com.masud.moneymanager.data.AppDatabase
 import com.masud.moneymanager.data.TaskEntity
 import com.masud.moneymanager.data.TransactionEntity
+import com.masud.moneymanager.widget.TaskDeepLink
+import com.masud.moneymanager.widget.TaskWidget
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private val IncomeGreen = Color(0xFF1ED760)
-private val FabDarkRed = Color(0xFFD32F2F) // + button dark red
-private val AccountFabRed = Color(0xFFB71C1C) // Accounts/Tasks tab er FAB — aro dark red
+private val FabDarkRed = Color(0xFFD32F2F)
+private val AccountFabRed = Color(0xFFB71C1C)
 
 @Composable
 fun HomeScreen(
         db: AppDatabase,
         currency: String,
         onAddTransaction: () -> Unit = {},
+        taskDeepLink: TaskDeepLink = TaskDeepLink(),
+        onTaskDeepLinkConsumed: () -> Unit = {},
 ) {
         val dao = db.transactionDao()
         val transactions by dao.observeAll().collectAsState(initial = emptyList())
 
         val accent = MaterialTheme.colorScheme.primary
         val scope = rememberCoroutineScope()
+        val focusManager = LocalFocusManager.current
 
         var selectedYear by remember { mutableStateOf(Calendar.getInstance().get(Calendar.YEAR)) }
         var selectedMonth by remember { mutableStateOf(Calendar.getInstance().get(Calendar.MONTH)) }
-        var selectedView by remember {
-                mutableStateOf(0)
-        } // 0 = Monthly, 1 = Calendar, 2 = Accounts, 3 = Tasks
+        var selectedView by remember { mutableStateOf(0) }
+
+        // Swipe navigation — pager + tab state duidik theke sync
+        val pagerState = rememberPagerState(initialPage = 0, pageCount = { 4 })
+        LaunchedEffect(selectedView) {
+                if (pagerState.currentPage != selectedView) {
+                        pagerState.animateScrollToPage(selectedView)
+                }
+        }
+        LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
+                if (!pagerState.isScrollInProgress && selectedView != pagerState.currentPage) {
+                        selectedView = pagerState.currentPage
+                }
+        }
+
         var editTarget by remember { mutableStateOf<TransactionEntity?>(null) }
         var showYearPicker by remember { mutableStateOf(false) }
         var showMonthPicker by remember { mutableStateOf(false) }
         var showAddAccountSheet by remember { mutableStateOf(false) }
         var showAddTaskSheet by remember { mutableStateOf(false) }
-        var summaryFilter by remember {
-                mutableStateOf<String?>(null)
-        } // null=sob, "INCOME", "EXPENSE"
 
-        // Search row animation toggle
+        LaunchedEffect(taskDeepLink) {
+                if (!taskDeepLink.isEmpty) {
+                        selectedView = 3
+                        if (taskDeepLink.openAddSheet) showAddTaskSheet = true
+                }
+        }
+
+        var summaryFilter by remember { mutableStateOf<String?>(null) }
+
         var isSearching by remember { mutableStateOf(false) }
         var searchQuery by remember { mutableStateOf("") }
         val searchFocusRequester = remember { FocusRequester() }
 
-        // Month full names, choto font e dekhabo
         val monthNames = remember {
                 listOf(
                         "January",
@@ -154,7 +181,6 @@ fun HomeScreen(
                 )
         }
 
-        // Month base calendar
         val baseCal =
                 remember(selectedYear, selectedMonth) {
                         Calendar.getInstance().apply {
@@ -168,7 +194,6 @@ fun HomeScreen(
                         }
                 }
 
-        // Calendar view er jonno selected day
         var selectedDay by remember { mutableStateOf(1) }
         LaunchedEffect(selectedYear, selectedMonth) {
                 summaryFilter = null
@@ -183,7 +208,6 @@ fun HomeScreen(
                         }
         }
 
-        // Ei month-er sob transaction (filter optional search + summary filter)
         val monthTransactions =
                 remember(transactions, selectedYear, selectedMonth, searchQuery, summaryFilter) {
                         transactions.filter { tx ->
@@ -204,7 +228,6 @@ fun HomeScreen(
                         }
                 }
 
-        // Summary (month-wise, search chara)
         val monthAll =
                 remember(transactions, selectedYear, selectedMonth) {
                         transactions.filter { tx ->
@@ -217,7 +240,6 @@ fun HomeScreen(
         val totalExpense = monthAll.filter { it.type == "EXPENSE" }.sumOf { it.amount }
         val net = totalIncome - totalExpense
 
-        // Group by day (descending)
         fun groupByDay(list: List<TransactionEntity>): Map<String, List<TransactionEntity>> =
                 list.sortedByDescending { it.createdAt }.groupBy { tx ->
                         val c = Calendar.getInstance().apply { timeInMillis = tx.createdAt }
@@ -226,7 +248,6 @@ fun HomeScreen(
 
         val grouped = remember(monthTransactions) { groupByDay(monthTransactions) }
 
-        // Calendar-strip er jonno: oi month-er kon kon dine tx ache (search chara — stable)
         val daysWithTx =
                 remember(monthAll) {
                         monthAll
@@ -238,7 +259,6 @@ fun HomeScreen(
                                 .toSet()
                 }
 
-        // Select kora diner tx
         val dayTransactions =
                 remember(monthTransactions, selectedDay) {
                         monthTransactions
@@ -255,16 +275,13 @@ fun HomeScreen(
         LaunchedEffect(isSearching) { if (isSearching) searchFocusRequester.requestFocus() }
 
         Scaffold(
-                // MainActivity er Scaffold already system inset handle kore — ekhane double hobe na
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 floatingActionButton = {
-                        // Calendar tab e FAB hide — clean look
                         AnimatedVisibility(
                                 visible = selectedView != 1,
                                 enter = fadeIn(),
                                 exit = fadeOut()
                         ) {
-                                // Accounts/Tasks tab e darker red FAB
                                 val fabColor by
                                         animateColorAsState(
                                                 targetValue =
@@ -291,80 +308,73 @@ fun HomeScreen(
         ) { padding ->
                 Column(
                         modifier =
-                                Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)
-                ) {
-                        // Top row: month/year nav OR search bar
-                        AnimatedContent(targetState = isSearching) { searching ->
-                                if (searching) {
-                                        Row(
-                                                modifier =
-                                                        Modifier.fillMaxWidth()
-                                                                .padding(top = 4.dp, bottom = 6.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        ) {
-                                                IconButton(
-                                                        onClick = {
-                                                                isSearching = false
-                                                                searchQuery = ""
-                                                        },
-                                                ) {
-                                                        Icon(
-                                                                Icons.Default.ArrowBack,
-                                                                contentDescription = "Close search",
-                                                                tint =
-                                                                        MaterialTheme.colorScheme
-                                                                                .onBackground,
-                                                        )
-                                                }
-                                                OutlinedTextField(
-                                                        value = searchQuery,
-                                                        onValueChange = { searchQuery = it },
-                                                        modifier =
-                                                                Modifier.weight(1f)
-                                                                        .focusRequester(
-                                                                                searchFocusRequester
-                                                                        ),
-                                                        placeholder = {
-                                                                Text("Search transactions")
-                                                        },
-                                                        singleLine = true,
-                                                        shape = RoundedCornerShape(12.dp),
-                                                        keyboardOptions =
-                                                                KeyboardOptions(
-                                                                        imeAction = ImeAction.Search
-                                                                ),
-                                                        colors =
-                                                                OutlinedTextFieldDefaults.colors(
-                                                                        focusedBorderColor = accent,
-                                                                        unfocusedBorderColor =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .outline,
-                                                                ),
-                                                        trailingIcon = {
-                                                                if (searchQuery.isNotEmpty()) {
-                                                                        IconButton(
-                                                                                onClick = {
-                                                                                        searchQuery =
-                                                                                                ""
-                                                                                }
-                                                                        ) {
-                                                                                Icon(
-                                                                                        Icons.Default
-                                                                                                .Close,
-                                                                                        contentDescription =
-                                                                                                "Clear",
-                                                                                        tint =
-                                                                                                MaterialTheme
-                                                                                                        .colorScheme
-                                                                                                        .onSurfaceVariant,
-                                                                                )
-                                                                        }
+                                Modifier.fillMaxSize()
+                                        .padding(padding)
+                                        .padding(horizontal = 16.dp)
+                                        .pointerInput(isSearching) {
+                                                detectTapGestures(
+                                                        onTap = {
+                                                                if (isSearching) {
+                                                                        isSearching = false
+                                                                        searchQuery = ""
+                                                                        focusManager.clearFocus()
                                                                 }
-                                                        },
+                                                        }
                                                 )
                                         }
+                ) {
+                        AnimatedContent(targetState = isSearching) { searching ->
+                                if (searching) {
+                                        OutlinedTextField(
+                                                value = searchQuery,
+                                                onValueChange = { searchQuery = it },
+                                                modifier =
+                                                        Modifier.fillMaxWidth()
+                                                                .padding(top = 4.dp, bottom = 6.dp)
+                                                                .height(48.dp)
+                                                                .focusRequester(
+                                                                        searchFocusRequester
+                                                                ),
+                                                placeholder = {
+                                                        Text(
+                                                                "Search transactions",
+                                                                fontSize = 14.sp
+                                                        )
+                                                },
+                                                textStyle = TextStyle(fontSize = 14.sp),
+                                                singleLine = true,
+                                                shape = RoundedCornerShape(12.dp),
+                                                keyboardOptions =
+                                                        KeyboardOptions(
+                                                                imeAction = ImeAction.Search
+                                                        ),
+                                                colors =
+                                                        OutlinedTextFieldDefaults.colors(
+                                                                focusedBorderColor = accent,
+                                                                unfocusedBorderColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .outline,
+                                                        ),
+                                                trailingIcon = {
+                                                        if (searchQuery.isNotEmpty()) {
+                                                                IconButton(
+                                                                        onClick = {
+                                                                                searchQuery = ""
+                                                                        }
+                                                                ) {
+                                                                        Icon(
+                                                                                Icons.Default.Close,
+                                                                                contentDescription =
+                                                                                        "Clear",
+                                                                                tint =
+                                                                                        MaterialTheme
+                                                                                                .colorScheme
+                                                                                                .onSurfaceVariant,
+                                                                        )
+                                                                }
+                                                        }
+                                                },
+                                        )
                                 } else {
                                         Row(
                                                 modifier =
@@ -466,7 +476,6 @@ fun HomeScreen(
                                 }
                         }
 
-                        // Tabs
                         Row(modifier = Modifier.fillMaxWidth()) {
                                 TabHeaderItem(
                                         text = "Monthly",
@@ -491,7 +500,6 @@ fun HomeScreen(
                         }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                        // Summary — sudhu Monthly tab e (click korle filter)
                         AnimatedVisibility(visible = selectedView == 0) {
                                 Row(
                                         modifier =
@@ -539,9 +547,13 @@ fun HomeScreen(
                                 }
                         }
 
-                        // Content
-                        Crossfade(targetState = selectedView) { view ->
-                                if (view == 0) {
+                        HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                userScrollEnabled = true,
+                                key = { it },
+                        ) { page ->
+                                if (page == 0) {
                                         if (grouped.isEmpty()) {
                                                 EmptyState(
                                                         title = "No transactions this month",
@@ -555,7 +567,7 @@ fun HomeScreen(
                                                         onItemClick = { editTarget = it },
                                                 )
                                         }
-                                } else if (view == 1) {
+                                } else if (page == 1) {
                                         Column(modifier = Modifier.fillMaxSize()) {
                                                 CalendarStrip(
                                                         year = selectedYear,
@@ -619,7 +631,7 @@ fun HomeScreen(
                                                         }
                                                 }
                                         }
-                                } else if (view == 2) {
+                                } else if (page == 2) {
                                         AccountsTab(
                                                 db = db,
                                                 currency = currency,
@@ -632,6 +644,8 @@ fun HomeScreen(
                                                 currency = currency,
                                                 showAddSheet = showAddTaskSheet,
                                                 onShowAddSheetChange = { showAddTaskSheet = it },
+                                                taskDeepLink = taskDeepLink,
+                                                onTaskDeepLinkConsumed = onTaskDeepLinkConsumed,
                                         )
                                 }
                         }
@@ -685,6 +699,8 @@ private fun TasksTab(
         currency: String,
         showAddSheet: Boolean,
         onShowAddSheetChange: (Boolean) -> Unit,
+        taskDeepLink: TaskDeepLink = TaskDeepLink(),
+        onTaskDeepLinkConsumed: () -> Unit = {},
 ) {
         val dao = db.taskDao()
         val tasks by dao.observeAll().collectAsState(initial = emptyList())
@@ -696,9 +712,7 @@ private fun TasksTab(
         var editingTask by remember { mutableStateOf<TaskEntity?>(null) }
 
         val permissionLauncher =
-                rememberLauncherForActivityResult(
-                        ActivityResultContracts.RequestPermission()
-                ) { /* result ja-i hok, save hoye geche — alarm poreo schedule hobe */}
+                rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
         fun ensureNotificationPermission() {
                 if (Build.VERSION.SDK_INT >= 33 &&
@@ -715,8 +729,18 @@ private fun TasksTab(
         val completed = tasks.filter { it.isDone }
         val totalAmount = tasks.sumOf { it.amount }
 
+        LaunchedEffect(taskDeepLink) {
+                if (!taskDeepLink.isEmpty) {
+                        taskDeepLink.editTaskId?.let { id ->
+                                dao.getById(id)?.let { editingTask = it }
+                        }
+                        onTaskDeepLinkConsumed()
+                }
+        }
+
+        LaunchedEffect(tasks) { runCatching { TaskWidget().updateAll(context) } }
+
         Column(modifier = Modifier.fillMaxSize()) {
-                // Total amount header — uporer corner square, nicher corner rounded
                 Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape =
@@ -963,7 +987,6 @@ private fun TaskRow(
                                                 modifier = Modifier.padding(top = 2.dp)
                                         )
                                 }
-                                // Amount + date/time ek line e — card height kombe
                                 if (task.amount > 0 || reminderLabel != null) {
                                         Row(
                                                 verticalAlignment = Alignment.CenterVertically,
@@ -1178,7 +1201,7 @@ private fun CompletedFolder(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddTaskSheet(
+internal fun AddTaskSheet(
         editing: TaskEntity? = null,
         onDismiss: () -> Unit,
         onSave:
@@ -1279,7 +1302,6 @@ private fun AddTaskSheet(
                                         }
                                         .timeInMillis
                         } else null
-                // Time thakle sudhu exact tai lagbe, date-only hole date ta
                 val finalDate = if (exactMillis != null) null else dateMillis
                 onSave(
                         title.trim(),
@@ -1409,7 +1431,6 @@ private fun AddTaskSheet(
 
                         Spacer(Modifier.height(10.dp))
 
-                        // Date picker (optional)
                         Surface(
                                 onClick = { showDatePicker = true },
                                 shape = RoundedCornerShape(16.dp),
@@ -1462,7 +1483,6 @@ private fun AddTaskSheet(
 
                         Spacer(Modifier.height(10.dp))
 
-                        // Time picker (optional, date thakle tobei)
                         val timeEnabled = dateMillis != null
                         Surface(
                                 onClick = { if (timeEnabled) showTimePicker = true },
@@ -2494,7 +2514,7 @@ private fun TransactionRow(
 @Composable
 private fun CalendarStrip(
         year: Int,
-        month: Int, // 0..11
+        month: Int,
         selectedDay: Int,
         daysWithTx: Set<Int>,
         onSelect: (Int) -> Unit,
@@ -2513,10 +2533,14 @@ private fun CalendarStrip(
         val dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
         val listState = rememberLazyListState()
 
-        // Active date samne niye aso - today/current date auto visible thakbe
         LaunchedEffect(year, month, selectedDay) {
                 val index = (selectedDay - 1).coerceIn(0, (daysInMonth - 1).coerceAtLeast(0))
-                listState.scrollToItem(index)
+                snapshotFlow { listState.layoutInfo.viewportSize.width }.first { it > 0 }
+                val info = listState.layoutInfo
+                val viewportW = info.viewportSize.width
+                val itemW = info.visibleItemsInfo.firstOrNull()?.size ?: 0
+                val offset = if (itemW > 0) -((viewportW - itemW) / 2).coerceAtLeast(0) else 0
+                listState.animateScrollToItem(index, offset)
         }
 
         LazyRow(

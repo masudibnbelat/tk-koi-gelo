@@ -75,6 +75,9 @@ dependencies {
 
     implementation("org.apache.poi:poi-ooxml:5.2.5")
 
+    // Home-screen task widget (Glance)
+    implementation("androidx.glance:glance-appwidget:1.1.0")
+
 
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.compose.ui:ui")
@@ -89,6 +92,8 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+
+
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
