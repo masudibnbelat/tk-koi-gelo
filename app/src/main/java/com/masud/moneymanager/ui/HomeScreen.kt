@@ -94,14 +94,13 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.glance.appwidget.updateAll
 import com.masud.moneymanager.data.AccountEntity
 import com.masud.moneymanager.data.AccountEntryEntity
 import com.masud.moneymanager.data.AppDatabase
 import com.masud.moneymanager.data.TaskEntity
 import com.masud.moneymanager.data.TransactionEntity
 import com.masud.moneymanager.widget.TaskDeepLink
-import com.masud.moneymanager.widget.TaskWidget
+import com.masud.moneymanager.widget.refreshTaskWidgets
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -738,7 +737,7 @@ private fun TasksTab(
                 }
         }
 
-        LaunchedEffect(tasks) { runCatching { TaskWidget().updateAll(context) } }
+        LaunchedEffect(tasks) { runCatching { refreshTaskWidgets(context) } }
 
         Column(modifier = Modifier.fillMaxSize()) {
                 Surface(
@@ -839,6 +838,9 @@ private fun TasksTab(
                                                                                                                                         false
                                                                                                                         )
                                                                                                                 )
+                                                                                                        refreshTaskWidgets(
+                                                                                                                context
+                                                                                                        )
                                                                                                 }
                                                                                 },
                                                                                 onDelete = {
@@ -927,6 +929,7 @@ private fun TasksTab(
                                         onClick = {
                                                 scope.launch {
                                                         TaskAlarmScheduler.cancel(context, task.id)
+                                                        refreshTaskWidgets(context)
                                                         dao.deleteById(task.id)
                                                 }
                                                 deleteTarget = null
