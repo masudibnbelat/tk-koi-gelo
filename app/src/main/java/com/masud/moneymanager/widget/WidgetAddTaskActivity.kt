@@ -1,16 +1,11 @@
 // FILE: app/src/main/java/com/masud/moneymanager/widget/WidgetAddTaskActivity.kt
 package com.masud.moneymanager.widget
 
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
-import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.updateAll
 import com.masud.moneymanager.data.AppDatabase
 import com.masud.moneymanager.data.TaskEntity
 import com.masud.moneymanager.ui.AddTaskSheet
@@ -20,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class WidgetAddTaskActivity : ComponentActivity() {
@@ -28,6 +24,18 @@ class WidgetAddTaskActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Heartbeat keeps the Glance session alive while the sheet is open.
+        activityScope.launch {
+            while (true) {
+                // Immediate manual push (bypasses Glance worker).
+                ManualWidgetHelper.pushUpdate(appCtx)
+                // Glance refresh for consistency (when worker runs).
+                refreshTaskWidgets(appCtx)
+
+                refreshTaskWidgets(applicationContext)
+                delay(25_000)
+            }
+        }
         setContent {
             MoneyManagerTheme(darkTheme = isSystemInDarkTheme()) {
                 AddTaskSheet(
@@ -67,43 +75,11 @@ class WidgetAddTaskActivity : ComponentActivity() {
                                             .onFailure {
                                                 Log.e("WidgetAdd", "alarm schedule failed", it)
                                             }
-                                    // Path 1: Glance updateAll with Activity context
-                                    runCatching {
-                                        val manager = GlanceAppWidgetManager(appCtx)
-                                        val ids = manager.getGlanceIds(TaskWidget::class.java)
-                                        Log.d("WidgetAdd", "glanceIds=$ids")
-                                        TaskWidget().updateAll(this@WidgetAddTaskActivity)
-                                        Log.d("WidgetAdd", "updateAll returned")
-                                    }
-                                            .onFailure {
-                                                Log.e("WidgetAdd", "widget update failed", it)
-                                            }
-                                    // Path 2: System broadcast (official update path)
-                                    runCatching {
-                                        val mgr = AppWidgetManager.getInstance(appCtx)
-                                        val comp =
-                                                ComponentName(
-                                                        appCtx,
-                                                        TaskWidgetReceiver::class.java
-                                                )
-                                        val widgetIds = mgr.getAppWidgetIds(comp)
-                                        Log.d("WidgetAdd", "broadcasting for ${widgetIds.toList()}")
-                                        val updateIntent =
-                                                Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
-                                                        .apply {
-                                                            putExtra(
-                                                                    AppWidgetManager
-                                                                            .EXTRA_APPWIDGET_IDS,
-                                                                    widgetIds
-                                                            )
-                                                            `package` = appCtx.packageName
-                                                        }
-                                        appCtx.sendBroadcast(updateIntent)
-                                        Log.d("WidgetAdd", "broadcast sent")
-                                    }
-                                            .onFailure {
-                                                Log.e("WidgetAdd", "broadcast failed", it)
-                                            }
+                                    // Refetch: bumps WidgetRefreshSignal so the live
+                                    // widget re-queries the DB on the next frame.
+                                    refreshTaskWidgets(appCtx)
+                                    Log.d("WidgetAdd", "widget refreshed")
+                                    delay(3000)
                                 } catch (e: Exception) {
                                     Log.e("WidgetAdd", "save flow failed", e)
                                 } finally {
