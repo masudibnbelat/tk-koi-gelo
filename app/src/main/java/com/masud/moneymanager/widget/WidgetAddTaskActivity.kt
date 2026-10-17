@@ -25,13 +25,9 @@ class WidgetAddTaskActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Heartbeat keeps the Glance session alive while the sheet is open.
+        // Uses applicationContext directly (no appCtx here).
         activityScope.launch {
             while (true) {
-                // Immediate manual push (bypasses Glance worker).
-                ManualWidgetHelper.pushUpdate(appCtx)
-                // Glance refresh for consistency (when worker runs).
-                refreshTaskWidgets(appCtx)
-
                 refreshTaskWidgets(applicationContext)
                 delay(25_000)
             }
@@ -75,8 +71,10 @@ class WidgetAddTaskActivity : ComponentActivity() {
                                             .onFailure {
                                                 Log.e("WidgetAdd", "alarm schedule failed", it)
                                             }
-                                    // Refetch: bumps WidgetRefreshSignal so the live
-                                    // widget re-queries the DB on the next frame.
+                                    // Immediate manual push (bypasses Glance worker).
+                                    // Uses appCtx which IS defined here in onSave scope.
+                                    ManualWidgetHelper.pushUpdate(appCtx)
+                                    // Glance refresh for consistency.
                                     refreshTaskWidgets(appCtx)
                                     Log.d("WidgetAdd", "widget refreshed")
                                     delay(3000)

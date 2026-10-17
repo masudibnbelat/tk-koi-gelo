@@ -13,7 +13,6 @@
         android:gravity="center_vertical">
 
         <TextView
-            android:id="@+id/tv_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -30,10 +29,12 @@
             android:textSize="13sp" />
     </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/task_container"
+    <TextView
+        android:id="@+id/task_list"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical" />
+        android:textSize="14sp"
+        android:textColor="#1A1C1E"
+        android:paddingTop="4dp" />
 
 </LinearLayout>
