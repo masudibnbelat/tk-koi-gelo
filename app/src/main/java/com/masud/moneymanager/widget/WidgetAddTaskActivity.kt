@@ -71,13 +71,12 @@ class WidgetAddTaskActivity : ComponentActivity() {
                                             .onFailure {
                                                 Log.e("WidgetAdd", "alarm schedule failed", it)
                                             }
-                                    // Immediate manual push (bypasses Glance worker).
-                                    // Uses appCtx which IS defined here in onSave scope.
-                                    ManualWidgetHelper.pushUpdate(appCtx)
-                                    // Glance refresh for consistency.
+
+                                    // ❌ ManualWidgetHelper.pushUpdate(appCtx) — এটা সরাও
+                                    // ✅ শুধু Glance refresh
                                     refreshTaskWidgets(appCtx)
                                     Log.d("WidgetAdd", "widget refreshed")
-                                    delay(3000)
+                                    delay(300) // একটু অপেক্ষা করে তারপর finish
                                 } catch (e: Exception) {
                                     Log.e("WidgetAdd", "save flow failed", e)
                                 } finally {
