@@ -51,8 +51,8 @@ const val EXTRA_ADD_TASK = "tkkoigelo.extra.ADD_TASK"
 const val EXTRA_EDIT_TASK_ID = "tkkoigelo.extra.EDIT_TASK_ID"
 
 private const val MAX_WIDGET_TASKS = 100
-private val BorderDay = Color(0xFF1A1C1E)
-private val BorderNight = Color(0xFFE6E0E9)
+private val BorderDay = Color(0xCC1A1C1E)
+private val BorderNight = Color(0xCCE6E0E9)
 
 class TaskWidget : GlanceAppWidget() {
 
@@ -218,8 +218,7 @@ class TaskWidget : GlanceAppWidget() {
                         verticalAlignment = Alignment.CenterVertically
                 ) {
                         // TaskWidgetRow এর ভেতরে checkbox Text এ fontSize বাড়াও:
-                        Text(
-                                text = if (checked) "☑" else "☐",
+                        Box(
                                 modifier =
                                         GlanceModifier.clickable(
                                                         actionRunCallback<ToggleTaskDoneCallback>(
@@ -230,15 +229,23 @@ class TaskWidget : GlanceAppWidget() {
                                                                 )
                                                         )
                                                 )
-                                                .padding(end = 10.dp),
-                                style =
-                                        TextStyle(
-                                                fontSize = 26.sp, // ← 18.sp থেকে 26.sp
-                                                color =
-                                                        if (stage == 1) GlanceTheme.colors.primary
-                                                        else GlanceTheme.colors.onSurfaceVariant
-                                        )
-                        )
+                                                .padding(end = 10.dp), // ← cornerRadius(6.dp) নেই
+                                contentAlignment = Alignment.Center
+                        ) {
+                                Text(
+                                        text = if (checked) "☑" else "☐",
+                                        style =
+                                                TextStyle(
+                                                        fontSize = 20.sp,
+                                                        color =
+                                                                if (stage == 1)
+                                                                        GlanceTheme.colors.primary
+                                                                else
+                                                                        GlanceTheme.colors
+                                                                                .onSurfaceVariant
+                                                )
+                                )
+                        }
 
                         Column(
                                 modifier =
