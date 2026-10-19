@@ -23,6 +23,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
@@ -588,6 +590,8 @@ fun HomeScreen(
 
                                                 Spacer(Modifier.height(6.dp))
 
+                                                val dayListState = rememberLazyListState()
+
                                                 if (dayTransactions.isEmpty()) {
                                                         EmptyState(
                                                                 title =
@@ -596,37 +600,59 @@ fun HomeScreen(
                                                                         "Pick another date from the strip above.",
                                                         )
                                                 } else {
-                                                        LazyColumn(
-                                                                contentPadding =
-                                                                        PaddingValues(
-                                                                                bottom = 90.dp
-                                                                        ),
-                                                                verticalArrangement =
-                                                                        Arrangement.spacedBy(6.dp),
-                                                        ) {
-                                                                itemsIndexed(
-                                                                        dayTransactions,
-                                                                        key = { _, tx -> tx.id }
-                                                                ) { index, tx ->
-                                                                        TransactionRow(
-                                                                                transaction = tx,
-                                                                                currency = currency,
-                                                                                onClick = {
-                                                                                        editTarget =
-                                                                                                tx
-                                                                                },
-                                                                        )
-                                                                        if (index !=
-                                                                                        dayTransactions
-                                                                                                .lastIndex
-                                                                        ) {
-                                                                                Spacer(
-                                                                                        Modifier.height(
-                                                                                                6.dp
-                                                                                        )
+                                                        Box(modifier = Modifier.fillMaxSize()) {
+                                                                LazyColumn(
+                                                                        state = dayListState,
+                                                                        contentPadding =
+                                                                                PaddingValues(
+                                                                                        bottom =
+                                                                                                90.dp
+                                                                                ),
+                                                                        verticalArrangement =
+                                                                                Arrangement.spacedBy(
+                                                                                        6.dp
+                                                                                ),
+                                                                ) {
+                                                                        itemsIndexed(
+                                                                                dayTransactions,
+                                                                                key = { _, tx ->
+                                                                                        tx.id
+                                                                                }
+                                                                        ) { index, tx ->
+                                                                                TransactionRow(
+                                                                                        transaction =
+                                                                                                tx,
+                                                                                        currency =
+                                                                                                currency,
+                                                                                        onClick = {
+                                                                                                editTarget =
+                                                                                                        tx
+                                                                                        },
                                                                                 )
+                                                                                if (index !=
+                                                                                                dayTransactions
+                                                                                                        .lastIndex
+                                                                                ) {
+                                                                                        Spacer(
+                                                                                                Modifier.height(
+                                                                                                        6.dp
+                                                                                                )
+                                                                                        )
+                                                                                }
                                                                         }
                                                                 }
+                                                                ScrollToTopButton(
+                                                                        listState = dayListState,
+                                                                        modifier =
+                                                                                Modifier.align(
+                                                                                                Alignment
+                                                                                                        .BottomCenter
+                                                                                        )
+                                                                                        .padding(
+                                                                                                bottom =
+                                                                                                        96.dp
+                                                                                        ),
+                                                                )
                                                         }
                                                 }
                                         }
@@ -726,7 +752,7 @@ private fun TasksTab(
 
         val active = tasks.filter { !it.isDone }
         val completed = tasks.filter { it.isDone }
-        val totalAmount = tasks.sumOf { it.amount }
+        val totalAmount = active.sumOf { it.amount }
 
         LaunchedEffect(taskDeepLink) {
                 if (!taskDeepLink.isEmpty) {
@@ -1977,6 +2003,115 @@ private fun AccountDetailSheet(
                                 }
                         }
 
+                        Spacer(Modifier.height(12.dp))
+
+                        Button(
+                                onClick = { showAddForm = !showAddForm },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                shape = RoundedCornerShape(16.dp)
+                        ) {
+                                Icon(
+                                        if (showAddForm) Icons.Default.Close else Icons.Default.Add,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (showAddForm) "Hide" else "Add money", fontWeight = FontWeight.Bold)
+                        }
+
+                        AnimatedVisibility(
+                                visible = showAddForm,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                        ) {
+                                Column {
+                                        Spacer(Modifier.height(12.dp))
+                                        OutlinedTextField(
+                                                value = amount,
+                                                onValueChange = { amount = sanitizeAmountInput(it); error = null },
+                                                placeholder = { Text("Amount") },
+                                                singleLine = true,
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                                shape = RoundedCornerShape(16.dp),
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                                        focusedContainerColor = MaterialTheme.colorScheme.surface
+                                                )
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        OutlinedTextField(
+                                                value = note,
+                                                onValueChange = { note = it },
+                                                placeholder = { Text("Note (optional)") },
+                                                singleLine = true,
+                                                shape = RoundedCornerShape(16.dp),
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                                        focusedContainerColor = MaterialTheme.colorScheme.surface
+                                                )
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        Surface(
+                                                onClick = { showDatePicker = true },
+                                                shape = RoundedCornerShape(16.dp),
+                                                color = MaterialTheme.colorScheme.surface,
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                                modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                                Row(
+                                                        Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                        Icon(
+                                                                Icons.Default.CalendarMonth,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                        Text(dateLabel, fontSize = 14.sp)
+                                                }
+                                        }
+                                        AnimatedVisibility(visible = error != null) {
+                                                Text(
+                                                        error ?: "",
+                                                        color = MaterialTheme.colorScheme.error,
+                                                        fontSize = 12.sp,
+                                                        modifier = Modifier.padding(top = 6.dp)
+                                                )
+                                        }
+                                        Spacer(Modifier.height(10.dp))
+                                        Button(
+                                                onClick = {
+                                                        val v = amount.trim().toDoubleOrNull()
+                                                        when {
+                                                                v == null || !v.isFinite() || v <= 0.0 -> error = "Enter a valid amount."
+                                                                else -> {
+                                                                        scope.launch {
+                                                                                dao.insertEntry(
+                                                                                        AccountEntryEntity(
+                                                                                                accountId = account.id,
+                                                                                                amount = v,
+                                                                                                note = note.trim(),
+                                                                                                createdAt = entryDate
+                                                                                        )
+                                                                                )
+                                                                        }
+                                                                        amount = ""; note = ""; error = null
+                                                                        entryDate = System.currentTimeMillis()
+                                                                        showAddForm = false
+                                                                }
+                                                        }
+                                                },
+                                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                                shape = RoundedCornerShape(16.dp)
+                                        ) {
+                                                Text("Save", fontWeight = FontWeight.Bold)
+                                        }
+                                }
+                        }
+
                         Spacer(Modifier.height(16.dp))
                         Text("Entries", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         Spacer(Modifier.height(8.dp))
@@ -2230,38 +2365,74 @@ private fun TransactionList(
         currency: String,
         onItemClick: (TransactionEntity) -> Unit,
 ) {
-        LazyColumn(
-                contentPadding = PaddingValues(bottom = 90.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-                grouped.forEach { (key, items) ->
-                        val dayIncome = items.filter { it.type == "INCOME" }.sumOf { it.amount }
-                        val dayExpense = items.filter { it.type == "EXPENSE" }.sumOf { it.amount }
-                        val first = items.first()
+        val listState = rememberLazyListState()
+        Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                        state = listState,
+                        contentPadding = PaddingValues(bottom = 90.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                        grouped.forEach { (key, items) ->
+                                val dayIncome = items.filter { it.type == "INCOME" }.sumOf { it.amount }
+                                val dayExpense = items.filter { it.type == "EXPENSE" }.sumOf { it.amount }
+                                val first = items.first()
 
-                        item(key = "header-$key") {
-                                DayHeader(
-                                        timestamp = first.createdAt,
-                                        income = dayIncome,
-                                        expense = dayExpense,
-                                        currency = currency,
-                                )
-                        }
-
-                        itemsIndexed(items, key = { _, tx -> tx.id }) { index, tx ->
-                                Column {
-                                        TransactionRow(
-                                                transaction = tx,
+                                item(key = "header-$key") {
+                                        DayHeader(
+                                                timestamp = first.createdAt,
+                                                income = dayIncome,
+                                                expense = dayExpense,
                                                 currency = currency,
-                                                onClick = { onItemClick(tx) },
                                         )
-                                        if (index != items.lastIndex) {
-                                                Spacer(Modifier.height(6.dp))
+                                }
+
+                                itemsIndexed(items, key = { _, tx -> tx.id }) { index, tx ->
+                                        Column {
+                                                TransactionRow(
+                                                        transaction = tx,
+                                                        currency = currency,
+                                                        onClick = { onItemClick(tx) },
+                                                )
+                                                if (index != items.lastIndex) {
+                                                        Spacer(Modifier.height(6.dp))
+                                                }
                                         }
                                 }
-                        }
 
-                        item(key = "spacer-$key") { Spacer(Modifier.height(8.dp)) }
+                                item(key = "spacer-$key") { Spacer(Modifier.height(8.dp)) }
+                        }
+                }
+                ScrollToTopButton(
+                        listState = listState,
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp),
+                )
+        }
+}
+
+@Composable
+private fun ScrollToTopButton(
+        listState: LazyListState,
+        modifier: Modifier = Modifier,
+) {
+        val scope = rememberCoroutineScope()
+        val showTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 4 } }
+        AnimatedVisibility(
+                visible = showTop,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+                modifier = modifier,
+        ) {
+                FloatingActionButton(
+                        onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                        modifier = Modifier.size(44.dp),
+                        shape = CircleShape,
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = Color.White,
+                ) {
+                        Icon(
+                                Icons.Default.KeyboardArrowUp,
+                                contentDescription = "Scroll to top",
+                        )
                 }
         }
 }
