@@ -4,9 +4,9 @@ package com.masud.moneymanager.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -14,7 +14,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,8 +28,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -36,10 +41,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.masud.moneymanager.data.AppDatabase
 import com.masud.moneymanager.data.LoanEntity
 import com.masud.moneymanager.data.LoanRepaymentEntity
@@ -49,8 +59,8 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
-private val GreenSoft = Color(0xFF1ED760)
-private val RedSoft = Color(0xFFFF5C5C)
+private val DarkGreen = Color(0xFF2E7D32)
+private val DarkRed = Color(0xFFB71C1C)
 
 @Composable
 fun LoansScreen(db: AppDatabase, currency: String = "BDT") {
@@ -97,98 +107,126 @@ fun LoansScreen(db: AppDatabase, currency: String = "BDT") {
                         modifier =
                                 Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp)
                 ) {
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(16.dp))
                         Text(
-                                "Loan Manager",
-                                fontSize = 28.sp,
+                                "Loans",
+                                fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                         )
-                        Spacer(Modifier.height(12.dp))
-                        Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        Spacer(Modifier.height(14.dp))
+                        LoanHeroCard(
+                                toReceive = toReceive,
+                                toPay = toPay,
+                                symbol = symbol
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                modifier = Modifier.fillMaxWidth()
                         ) {
-                                SummaryCard(
-                                        title = "To receive",
-                                        amount = toReceive,
-                                        symbol = symbol,
-                                        color = GreenSoft,
-                                        modifier = Modifier.weight(1f)
-                                )
-                                SummaryCard(
-                                        title = "To pay",
-                                        amount = toPay,
-                                        symbol = symbol,
-                                        color = RedSoft,
-                                        modifier = Modifier.weight(1f)
-                                )
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        Row(
-                                modifier =
-                                        Modifier.fillMaxWidth()
-                                                .clip(RoundedCornerShape(16.dp))
-                                                .background(
-                                                        MaterialTheme.colorScheme.surfaceVariant
-                                                                .copy(alpha = 0.35f)
-                                                )
-                                                .padding(4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                                listOf("Active" to GreenSoft, "Done" to RedSoft).forEachIndexed {
-                                        i,
-                                        (label, tint) ->
-                                        val selected = selectedTab == i
-                                        val count =
-                                                if (i == 0) activeLoans.size
-                                                else completedLoans.size
-                                        val tabBg by
-                                                animateColorAsState(
-                                                        targetValue =
-                                                                if (selected)
-                                                                        tint.copy(alpha = 0.16f)
-                                                                else Color.Transparent,
-                                                        animationSpec =
-                                                                spring(
-                                                                        dampingRatio =
-                                                                                Spring.DampingRatioMediumBouncy,
-                                                                        stiffness =
-                                                                                Spring.StiffnessLow
-                                                                ),
-                                                        label = "tabBg"
-                                                )
-                                        Box(
-                                                modifier =
-                                                        Modifier.weight(1f)
-                                                                .clip(RoundedCornerShape(12.dp))
-                                                                .background(tabBg)
-                                                                .clickable { selectedTab = i }
-                                                                .padding(vertical = 8.dp)
-                                                                .animateContentSize(
+                                Row(
+                                        modifier = Modifier.padding(4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                        listOf("Active" to DarkGreen, "Done" to DarkRed)
+                                                .forEachIndexed { i, (label, tint) ->
+                                                        val selected = selectedTab == i
+                                                        val count =
+                                                                if (i == 0) activeLoans.size
+                                                                else completedLoans.size
+                                                        val tabBg by
+                                                                animateColorAsState(
+                                                                        targetValue =
+                                                                                if (selected) tint
+                                                                                else Color.Transparent,
                                                                         animationSpec =
-                                                                                spring(
-                                                                                        dampingRatio =
-                                                                                                Spring.DampingRatioMediumBouncy,
-                                                                                        stiffness =
-                                                                                                Spring.StiffnessLow
-                                                                                )
-                                                                ),
-                                                contentAlignment = Alignment.Center
-                                        ) {
-                                                Text(
-                                                        "$label · $count",
-                                                        fontWeight =
-                                                                if (selected) FontWeight.Bold
-                                                                else FontWeight.Medium,
-                                                        fontSize = 13.sp,
-                                                        color =
-                                                                if (selected) tint
+                                                                                tween(250),
+                                                                        label = "tabBg"
+                                                                )
+                                                        val labelColor =
+                                                                if (selected) Color.White
                                                                 else
                                                                         MaterialTheme.colorScheme
                                                                                 .onSurfaceVariant
-                                                )
-                                        }
+                                                        val badgeBg =
+                                                                if (selected)
+                                                                        Color.White.copy(
+                                                                                alpha = 0.22f
+                                                                        )
+                                                                else tint.copy(alpha = 0.12f)
+                                                        val badgeColor =
+                                                                if (selected) Color.White
+                                                                else tint
+                                                        Box(
+                                                                modifier =
+                                                                        Modifier.weight(1f)
+                                                                                .clip(
+                                                                                        RoundedCornerShape(
+                                                                                                10.dp
+                                                                                        )
+                                                                                )
+                                                                                .background(tabBg)
+                                                                                .clickable {
+                                                                                        selectedTab =
+                                                                                                i
+                                                                                }
+                                                                                .padding(
+                                                                                        vertical =
+                                                                                                9.dp
+                                                                                ),
+                                                                contentAlignment = Alignment.Center
+                                                        ) {
+                                                                Row(
+                                                                        verticalAlignment =
+                                                                                Alignment
+                                                                                        .CenterVertically,
+                                                                        horizontalArrangement =
+                                                                                Arrangement.spacedBy(
+                                                                                        6.dp
+                                                                                )
+                                                                ) {
+                                                                        Text(
+                                                                                label,
+                                                                                fontWeight =
+                                                                                        if (selected)
+                                                                                                FontWeight
+                                                                                                        .Bold
+                                                                                        else
+                                                                                                FontWeight
+                                                                                                        .Medium,
+                                                                                fontSize = 13.sp,
+                                                                                color = labelColor
+                                                                        )
+                                                                        Surface(
+                                                                                shape =
+                                                                                        RoundedCornerShape(
+                                                                                                6.dp
+                                                                                        ),
+                                                                                color = badgeBg
+                                                                        ) {
+                                                                                Text(
+                                                                                        count.toString(),
+                                                                                        fontSize =
+                                                                                                11.sp,
+                                                                                        fontWeight =
+                                                                                                FontWeight
+                                                                                                        .Bold,
+                                                                                        color =
+                                                                                                badgeColor,
+                                                                                        modifier =
+                                                                                                Modifier.padding(
+                                                                                                        horizontal =
+                                                                                                                7.dp,
+                                                                                                        vertical =
+                                                                                                                2.dp
+                                                                                                )
+                                                                                )
+                                                                        }
+                                                                }
+                                                        }
+                                                }
                                 }
                         }
                         Spacer(Modifier.height(12.dp))
@@ -322,51 +360,197 @@ fun LoansScreen(db: AppDatabase, currency: String = "BDT") {
                 )
         }
         deleteTarget?.let { loan ->
-                AlertDialog(
-                        onDismissRequest = { deleteTarget = null },
-                        title = { Text("Delete loan?", fontWeight = FontWeight.Bold) },
-                        text = { Text("Delete loan for ${loan.personName} with its history?") },
-                        confirmButton = {
-                                TextButton(
-                                        onClick = {
-                                                scope.launch { dao.deleteLoan(loan.id) }
-                                                deleteTarget = null
-                                        }
-                                ) {
-                                        Text(
-                                                "Delete",
-                                                color = MaterialTheme.colorScheme.error,
-                                                fontWeight = FontWeight.Bold
-                                        )
-                                }
-                        },
-                        dismissButton = {
-                                TextButton(onClick = { deleteTarget = null }) { Text("Cancel") }
+                DeleteLoanDialog(
+                        personName = loan.personName,
+                        onDismiss = { deleteTarget = null },
+                        onConfirm = {
+                                scope.launch { dao.deleteLoan(loan.id) }
+                                deleteTarget = null
                         }
                 )
         }
 }
 
 @Composable
-private fun SummaryCard(
+private fun DeleteLoanDialog(
+        personName: String,
+        onDismiss: () -> Unit,
+        onConfirm: () -> Unit
+) {
+        Dialog(onDismissRequest = onDismiss) {
+                Surface(
+                        shape = RoundedCornerShape(28.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 2.dp,
+                        modifier = Modifier.fillMaxWidth()
+                ) {
+                        Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                                Box(
+                                        modifier =
+                                                Modifier.size(64.dp)
+                                                        .background(
+                                                                MaterialTheme.colorScheme.error.copy(
+                                                                        alpha = 0.12f
+                                                                ),
+                                                                CircleShape
+                                                        ),
+                                        contentAlignment = Alignment.Center
+                                ) {
+                                        Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(28.dp)
+                                        )
+                                }
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                        "Delete loan?",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                        "Remove the loan for $personName and all of its repayment history? This can't be undone.",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                )
+                                Spacer(Modifier.height(24.dp))
+                                Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                        Button(
+                                                onClick = onDismiss,
+                                                modifier = Modifier.weight(1f).height(52.dp),
+                                                shape = RoundedCornerShape(16.dp),
+                                                colors =
+                                                        ButtonDefaults.buttonColors(
+                                                                containerColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .surfaceVariant.copy(
+                                                                                alpha = 0.6f
+                                                                        ),
+                                                                contentColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .onSurface
+                                                        )
+                                        ) {
+                                                Text("Cancel", fontWeight = FontWeight.Bold)
+                                        }
+                                        Button(
+                                                onClick = onConfirm,
+                                                modifier = Modifier.weight(1f).height(52.dp),
+                                                shape = RoundedCornerShape(16.dp),
+                                                colors =
+                                                        ButtonDefaults.buttonColors(
+                                                                containerColor = DarkRed,
+                                                                contentColor = Color.White
+                                                        )
+                                        ) {
+                                                Text("Delete", fontWeight = FontWeight.Bold)
+                                        }
+                                }
+                        }
+                }
+        }
+}
+
+@Composable
+private fun LoanHeroCard(
+        toReceive: Double,
+        toPay: Double,
+        symbol: String,
+        modifier: Modifier = Modifier
+) {
+        Surface(
+                modifier = modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        ) {
+                Row(
+                        modifier = Modifier.padding(vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                ) {
+                        LoanStat(
+                                title = "To receive",
+                                amount = toReceive,
+                                symbol = symbol,
+                                color = DarkGreen,
+                                icon = Icons.Default.ArrowDownward,
+                                modifier = Modifier.weight(1f)
+                        )
+                        Box(
+                                modifier =
+                                        Modifier.width(1.dp)
+                                                .height(44.dp)
+                                                .background(
+                                                        MaterialTheme.colorScheme.outlineVariant
+                                                )
+                        )
+                        LoanStat(
+                                title = "To pay",
+                                amount = toPay,
+                                symbol = symbol,
+                                color = DarkRed,
+                                icon = Icons.Default.ArrowUpward,
+                                modifier = Modifier.weight(1f)
+                        )
+                }
+        }
+}
+
+@Composable
+private fun LoanStat(
         title: String,
         amount: Double,
         symbol: String,
         color: Color,
+        icon: ImageVector,
         modifier: Modifier = Modifier
 ) {
         Column(
-                modifier =
-                        modifier.clip(RoundedCornerShape(20.dp))
-                                .background(color.copy(alpha = 0.10f))
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
-                                .animateContentSize()
+                modifier = modifier,
+                horizontalAlignment = Alignment.CenterHorizontally
         ) {
-                Text(title, fontSize = 12.sp, color = color, fontWeight = FontWeight.Medium)
-                Spacer(Modifier.height(2.dp))
+                Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                        Box(
+                                modifier =
+                                        Modifier.size(26.dp)
+                                                .background(
+                                                        color.copy(alpha = 0.12f),
+                                                        CircleShape
+                                                ),
+                                contentAlignment = Alignment.Center
+                        ) {
+                                Icon(
+                                        icon,
+                                        contentDescription = null,
+                                        tint = color,
+                                        modifier = Modifier.size(14.dp)
+                                )
+                        }
+                        Text(
+                                title,
+                                fontSize = 11.sp,
+                                letterSpacing = 0.8.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium
+                        )
+                }
+                Spacer(Modifier.height(6.dp))
                 Text(
                         "$symbol ${String.format(Locale.US, "%,.0f", amount)}",
-                        fontSize = 17.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1
@@ -377,7 +561,7 @@ private fun SummaryCard(
 @Composable
 private fun LoanCard(loan: LoanEntity, repaid: Double, symbol: String, onClick: () -> Unit) {
         val isLent = loan.type == "LENT"
-        val accent = if (isLent) GreenSoft else RedSoft
+        val accent = if (isLent) DarkGreen else DarkRed
         val remaining = (loan.principalAmount - repaid).coerceAtLeast(0.0)
         val progress =
                 if (loan.principalAmount > 0)
@@ -389,97 +573,90 @@ private fun LoanCard(loan: LoanEntity, repaid: Double, symbol: String, onClick: 
                         animationSpec = tween(600),
                         label = "loanProgress"
                 )
+        val trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
         Surface(
                 onClick = onClick,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 tonalElevation = 1.dp
         ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp).animateContentSize()) {
-                        Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                Row(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                        // Progress ring avatar
+                        Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.size(54.dp)
                         ) {
-                                Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                        Box(
-                                                modifier =
-                                                        Modifier.size(40.dp)
-                                                                .background(
-                                                                        accent.copy(alpha = 0.12f),
-                                                                        CircleShape
-                                                                ),
-                                                contentAlignment = Alignment.Center
-                                        ) {
-                                                Text(
-                                                        loan.personName.firstOrNull()?.uppercase()
-                                                                ?: "?",
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = accent,
-                                                        fontSize = 16.sp
-                                                )
-                                        }
-                                        Column {
-                                                Text(
-                                                        loan.personName,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        fontSize = 15.sp,
-                                                        color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                                Text(
-                                                        if (isLent) "You lent" else "You borrowed",
-                                                        fontSize = 12.sp,
-                                                        color =
-                                                                MaterialTheme.colorScheme
-                                                                        .onSurfaceVariant
-                                                )
-                                        }
+                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                        val stroke = 5.dp.toPx()
+                                        drawArc(
+                                                color = trackColor,
+                                                startAngle = -90f,
+                                                sweepAngle = 360f,
+                                                useCenter = false,
+                                                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                                        )
+                                        drawArc(
+                                                color = accent,
+                                                startAngle = -90f,
+                                                sweepAngle = 360f * animatedProgress,
+                                                useCenter = false,
+                                                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                                        )
                                 }
+                                Box(
+                                        modifier =
+                                                Modifier.size(42.dp)
+                                                        .background(
+                                                                accent.copy(alpha = 0.12f),
+                                                                CircleShape
+                                                        ),
+                                        contentAlignment = Alignment.Center
+                                ) {
+                                        Text(
+                                                loan.personName.firstOrNull()?.uppercase() ?: "?",
+                                                fontWeight = FontWeight.Bold,
+                                                color = accent,
+                                                fontSize = 16.sp
+                                        )
+                                }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                        loan.personName,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1
+                                )
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                        (if (isLent) "Lent" else "Borrowed") +
+                                                " · ${(animatedProgress * 100).roundToInt()}% cleared",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                         "$symbol ${String.format(Locale.US, "%,.0f", remaining)}",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = accent
+                                        fontSize = 15.sp,
+                                        color = accent,
+                                        maxLines = 1
                                 )
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Box(
-                                modifier =
-                                        Modifier.fillMaxWidth()
-                                                .height(6.dp)
-                                                .clip(CircleShape)
-                                                .background(
-                                                        MaterialTheme.colorScheme.surfaceVariant
-                                                                .copy(alpha = 0.5f)
-                                                )
-                        ) {
-                                Box(
-                                        modifier =
-                                                Modifier.fillMaxWidth(animatedProgress)
-                                                        .fillMaxHeight()
-                                                        .clip(CircleShape)
-                                                        .background(accent)
-                                )
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                                Text(
-                                        "${(animatedProgress * 100).roundToInt()}% cleared",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = accent
-                                )
+                                Spacer(Modifier.height(3.dp))
                                 Text(
                                         "of $symbol ${String.format(Locale.US, "%,.0f", loan.principalAmount)}",
                                         fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
                                 )
                         }
                 }
@@ -508,7 +685,13 @@ private fun AddLoanSheet(
         }
         var note by remember(editing) { mutableStateOf(editing?.note.orEmpty()) }
         var error by remember { mutableStateOf<String?>(null) }
-        val accent = if (type == "LENT") GreenSoft else RedSoft
+        val accent = if (type == "LENT") DarkGreen else DarkRed
+        val saveBg by
+                animateColorAsState(
+                        targetValue = accent,
+                        animationSpec = tween(300),
+                        label = "saveBg"
+                )
         ModalBottomSheet(
                 onDismissRequest = onDismiss,
                 sheetState = sheetState,
@@ -536,23 +719,18 @@ private fun AddLoanSheet(
                                         onClick = onDismiss,
                                         modifier =
                                                 Modifier.size(36.dp)
-                                                        .background(
-                                                                MaterialTheme.colorScheme
-                                                                        .surfaceVariant.copy(
-                                                                        alpha = 0.5f
-                                                                ),
-                                                                CircleShape
-                                                        )
+                                                        .background(DarkRed, CircleShape)
                                 ) {
                                         Icon(
                                                 Icons.Default.Close,
                                                 contentDescription = "Close",
+                                                tint = Color.White,
                                                 modifier = Modifier.size(18.dp)
                                         )
                                 }
                         }
                         Spacer(Modifier.height(18.dp))
-                        Row(
+                        BoxWithConstraints(
                                 modifier =
                                         Modifier.fillMaxWidth()
                                                 .clip(RoundedCornerShape(16.dp))
@@ -562,37 +740,73 @@ private fun AddLoanSheet(
                                                 )
                                                 .padding(4.dp)
                         ) {
-                                listOf("LENT" to "Lent", "BORROWED" to "Borrowed").forEach {
-                                        (value, label) ->
-                                        val selected = type == value
-                                        val c = if (value == "LENT") GreenSoft else RedSoft
-                                        Box(
-                                                modifier =
-                                                        Modifier.weight(1f)
-                                                                .clip(RoundedCornerShape(12.dp))
-                                                                .background(
-                                                                        if (selected)
+                                val pillW = maxWidth / 2
+                                val pillX by
+                                        animateDpAsState(
+                                                targetValue = if (type == "LENT") 0.dp else pillW,
+                                                animationSpec =
+                                                        tween(
+                                                                320,
+                                                                easing = FastOutSlowInEasing
+                                                        ),
+                                                label = "typePillX"
+                                        )
+                                val pillBg by
+                                        animateColorAsState(
+                                                targetValue = accent.copy(alpha = 0.16f),
+                                                animationSpec = tween(320),
+                                                label = "typePillBg"
+                                        )
+                                Box(
+                                        modifier =
+                                                Modifier.width(pillW)
+                                                        .height(46.dp)
+                                                        .offset(x = pillX)
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .background(pillBg)
+                                )
+                                Row(modifier = Modifier.fillMaxWidth().height(46.dp)) {
+                                        listOf("LENT" to "Lent", "BORROWED" to "Borrowed").forEach {
+                                                (value, label) ->
+                                                val selected = type == value
+                                                val c =
+                                                        if (value == "LENT") DarkGreen
+                                                        else DarkRed
+                                                val textColor by
+                                                        animateColorAsState(
+                                                                targetValue =
+                                                                        if (selected) c
+                                                                        else
                                                                                 MaterialTheme
                                                                                         .colorScheme
-                                                                                        .surface
-                                                                        else Color.Transparent
-                                                                )
-                                                                .clickable { type = value }
-                                                                .padding(vertical = 12.dp),
-                                                contentAlignment = Alignment.Center
-                                        ) {
-                                                Text(
-                                                        label,
-                                                        fontWeight =
-                                                                if (selected) FontWeight.Bold
-                                                                else FontWeight.Medium,
-                                                        fontSize = 14.sp,
-                                                        color =
-                                                                if (selected) c
-                                                                else
-                                                                        MaterialTheme.colorScheme
-                                                                                .onSurfaceVariant
-                                                )
+                                                                                        .onSurfaceVariant,
+                                                                animationSpec = tween(250),
+                                                                label = "typeText"
+                                                        )
+                                                Box(
+                                                        modifier =
+                                                                Modifier.weight(1f)
+                                                                        .fillMaxHeight()
+                                                                        .clip(
+                                                                                RoundedCornerShape(
+                                                                                        12.dp
+                                                                                )
+                                                                        )
+                                                                        .clickable {
+                                                                                type = value
+                                                                        },
+                                                        contentAlignment = Alignment.Center
+                                                ) {
+                                                        Text(
+                                                                label,
+                                                                fontWeight =
+                                                                        if (selected)
+                                                                                FontWeight.Bold
+                                                                        else FontWeight.Medium,
+                                                                fontSize = 14.sp,
+                                                                color = textColor
+                                                        )
+                                                }
                                         }
                                 }
                         }
@@ -605,6 +819,13 @@ private fun AddLoanSheet(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 placeholder = { Text("Person's name") },
+                                leadingIcon = {
+                                        Icon(
+                                                Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                },
                                 singleLine = true,
                                 shape = RoundedCornerShape(16.dp)
                         )
@@ -677,7 +898,8 @@ private fun AddLoanSheet(
                                 shape = RoundedCornerShape(18.dp),
                                 colors =
                                         ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.primary
+                                                containerColor = saveBg,
+                                                contentColor = Color.White
                                         )
                         ) {
                                 Text(
@@ -711,6 +933,10 @@ private fun LoanDetailSheet(
         var payDate by remember { mutableStateOf(System.currentTimeMillis()) }
         var showPayDatePicker by remember { mutableStateOf(false) }
         var error by remember { mutableStateOf<String?>(null) }
+        var showTopUpForm by remember { mutableStateOf(false) }
+        var topUpAmount by remember { mutableStateOf("") }
+        var topUpNote by remember { mutableStateOf("") }
+        var topUpError by remember { mutableStateOf<String?>(null) }
         val totalRepaid = repayments.sumOf { it.amount }
         val remaining = (loan.principalAmount - totalRepaid).coerceAtLeast(0.0)
         val progress =
@@ -724,7 +950,7 @@ private fun LoanDetailSheet(
                         label = "detailProgress"
                 )
         val isLent = loan.type == "LENT"
-        val accent = if (isLent) GreenSoft else RedSoft
+        val accent = if (isLent) DarkGreen else DarkRed
         val payDateLabel =
                 remember(payDate) {
                         SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(payDate))
@@ -736,6 +962,13 @@ private fun LoanDetailSheet(
                 payDate = System.currentTimeMillis()
                 error = null
                 showPayForm = false
+        }
+
+        fun resetTopUpForm() {
+                topUpAmount = ""
+                topUpNote = ""
+                topUpError = null
+                showTopUpForm = false
         }
 
         ModalBottomSheet(
@@ -753,7 +986,7 @@ private fun LoanDetailSheet(
                                         .padding(bottom = 28.dp)
                                         .animateContentSize()
                 ) {
-                        // Header: avatar + name + type pill, edit + close actions
+                        // Header: avatar + name + type pill, close action
                         Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -801,36 +1034,29 @@ private fun LoanDetailSheet(
                                         }
                                 }
                                 IconButton(
-                                        onClick = { onEditRequest(loan) },
-                                        modifier = Modifier.size(40.dp)
-                                ) {
-                                        Icon(
-                                                Icons.Default.Edit,
-                                                contentDescription = "Edit loan",
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                }
-                                IconButton(
                                         onClick = onDismiss,
                                         modifier =
                                                 Modifier.size(40.dp)
                                                         .background(
-                                                                MaterialTheme.colorScheme
-                                                                        .surfaceVariant.copy(
-                                                                        alpha = 0.5f
-                                                                ),
-                                                                CircleShape
+                                                                DarkRed,
+                                                                RoundedCornerShape(
+                                                                        topStart = 0.dp,
+                                                                        topEnd = 0.dp,
+                                                                        bottomEnd = 0.dp,
+                                                                        bottomStart = 14.dp
+                                                                )
                                                         )
                                 ) {
                                         Icon(
                                                 Icons.Default.Close,
                                                 contentDescription = "Close",
+                                                tint = Color.White,
                                                 modifier = Modifier.size(18.dp)
                                         )
                                 }
                         }
 
-                        Spacer(Modifier.height(16.dp))
+                        Spacer(Modifier.height(10.dp))
 
                         // Hero: remaining
                         Surface(
@@ -851,23 +1077,68 @@ private fun LoanDetailSheet(
                                                         color = accent,
                                                         fontWeight = FontWeight.Medium
                                                 )
-                                                if (remaining <= 0.001) {
-                                                        Surface(
-                                                                shape = RoundedCornerShape(8.dp),
-                                                                color = GreenSoft.copy(alpha = 0.15f)
-                                                        ) {
-                                                                Text(
-                                                                        "Paid off",
-                                                                        fontSize = 11.sp,
-                                                                        fontWeight = FontWeight.Bold,
-                                                                        color = GreenSoft,
-                                                                        modifier =
-                                                                                Modifier.padding(
-                                                                                        horizontal =
-                                                                                                10.dp,
-                                                                                        vertical =
-                                                                                                4.dp
+                                                Row(
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                        if (remaining <= 0.001) {
+                                                                Surface(
+                                                                        shape =
+                                                                                RoundedCornerShape(
+                                                                                        8.dp
+                                                                                ),
+                                                                        color =
+                                                                                DarkGreen.copy(
+                                                                                        alpha = 0.15f
                                                                                 )
+                                                                ) {
+                                                                        Text(
+                                                                                "Paid off",
+                                                                                fontSize = 11.sp,
+                                                                                fontWeight =
+                                                                                        FontWeight
+                                                                                                .Bold,
+                                                                                color = DarkGreen,
+                                                                                modifier =
+                                                                                        Modifier.padding(
+                                                                                                horizontal =
+                                                                                                        10.dp,
+                                                                                                vertical =
+                                                                                                        4.dp
+                                                                                        )
+                                                                        )
+                                                                }
+                                                                Spacer(Modifier.width(4.dp))
+                                                        }
+                                                        IconButton(
+                                                                onClick = { onEditRequest(loan) },
+                                                                modifier = Modifier.size(36.dp)
+                                                        ) {
+                                                                Icon(
+                                                                        Icons.Default.Edit,
+                                                                        contentDescription =
+                                                                                "Edit loan",
+                                                                        tint =
+                                                                                MaterialTheme
+                                                                                        .colorScheme
+                                                                                        .onSurfaceVariant,
+                                                                        modifier =
+                                                                                Modifier.size(18.dp)
+                                                                )
+                                                        }
+                                                        IconButton(
+                                                                onClick = onDeleteRequest,
+                                                                modifier = Modifier.size(36.dp)
+                                                        ) {
+                                                                Icon(
+                                                                        Icons.Default.Delete,
+                                                                        contentDescription =
+                                                                                "Delete loan",
+                                                                        tint =
+                                                                                MaterialTheme
+                                                                                        .colorScheme
+                                                                                        .error,
+                                                                        modifier =
+                                                                                Modifier.size(18.dp)
                                                                 )
                                                         }
                                                 }
@@ -915,28 +1186,59 @@ private fun LoanDetailSheet(
 
                         Spacer(Modifier.height(16.dp))
 
-                        // Record payment — button only; no Hide toggle while paying
-                        if (remaining > 0.001 && !showPayForm) {
-                                Button(
-                                        onClick = { showPayForm = true },
-                                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors =
-                                                ButtonDefaults.buttonColors(
-                                                        containerColor = accent
-                                                )
+                        // Actions — payment and top-up; no Hide toggle while a form is open
+                        if (!showPayForm && !showTopUpForm) {
+                                Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                        Icon(
-                                                Icons.Default.Add,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                                "Record payment",
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
-                                        )
+                                        if (remaining > 0.001) {
+                                                Button(
+                                                        onClick = { showPayForm = true },
+                                                        modifier =
+                                                                Modifier.weight(1f).height(52.dp),
+                                                        shape = RoundedCornerShape(16.dp),
+                                                        colors =
+                                                                ButtonDefaults.buttonColors(
+                                                                        containerColor = accent
+                                                                )
+                                                ) {
+                                                        Icon(
+                                                                Icons.Default.Add,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(18.dp)
+                                                        )
+                                                        Spacer(Modifier.width(8.dp))
+                                                        Text(
+                                                                "Payment",
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color.White
+                                                        )
+                                                }
+                                        }
+                                        Button(
+                                                onClick = { showTopUpForm = true },
+                                                modifier = Modifier.weight(1f).height(52.dp),
+                                                shape = RoundedCornerShape(16.dp),
+                                                colors =
+                                                        ButtonDefaults.buttonColors(
+                                                                containerColor =
+                                                                        accent.copy(alpha = 0.12f),
+                                                                contentColor = accent
+                                                        )
+                                        ) {
+                                                Icon(
+                                                        if (isLent) Icons.Default.ArrowUpward
+                                                        else Icons.Default.ArrowDownward,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                        if (isLent) "Lend" else "Borrow",
+                                                        fontWeight = FontWeight.Bold
+                                                )
+                                        }
                                 }
                                 Spacer(Modifier.height(16.dp))
                         }
@@ -1046,7 +1348,8 @@ private fun LoanDetailSheet(
                                                         ) {
                                                                 Text(
                                                                         "Cancel",
-                                                                        fontWeight = FontWeight.Bold
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        color = accent
                                                                 )
                                                         }
                                                         Button(
@@ -1094,7 +1397,138 @@ private fun LoanDetailSheet(
                                                                         )
                                                         ) {
                                                                 Text(
-                                                                        "Save payment",
+                                                                        "Save",
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        color = Color.White
+                                                                )
+                                                        }
+                                                }
+                                        }
+                                }
+                                Spacer(Modifier.height(16.dp))
+                        }
+
+                        // Top-up form — increase the loan (stored as a negative repayment,
+                        // so remaining and history update automatically)
+                        AnimatedVisibility(
+                                visible = showTopUpForm,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                        ) {
+                                Surface(
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = MaterialTheme.colorScheme.surface,
+                                        border = BorderStroke(1.dp, accent.copy(alpha = 0.35f)),
+                                        tonalElevation = 1.dp,
+                                        modifier = Modifier.fillMaxWidth()
+                                ) {
+                                        Column(Modifier.padding(16.dp)) {
+                                                Text(
+                                                        if (isLent) "Lend" else "Borrow",
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 15.sp
+                                                )
+                                                Spacer(Modifier.height(10.dp))
+                                                OutlinedTextField(
+                                                        value = topUpAmount,
+                                                        onValueChange = {
+                                                                topUpAmount =
+                                                                        sanitizeAmountInput(it)
+                                                                topUpError = null
+                                                        },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        placeholder = { Text("Amount") },
+                                                        singleLine = true,
+                                                        keyboardOptions =
+                                                                KeyboardOptions(
+                                                                        keyboardType =
+                                                                                KeyboardType.Decimal
+                                                                ),
+                                                        shape = RoundedCornerShape(16.dp),
+                                                        colors =
+                                                                OutlinedTextFieldDefaults.colors(
+                                                                        focusedBorderColor = accent
+                                                                )
+                                                )
+                                                Spacer(Modifier.height(8.dp))
+                                                OutlinedTextField(
+                                                        value = topUpNote,
+                                                        onValueChange = { topUpNote = it },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        placeholder = { Text("Note (optional)") },
+                                                        shape = RoundedCornerShape(16.dp)
+                                                )
+                                                topUpError?.let {
+                                                        Text(
+                                                                it,
+                                                                color =
+                                                                        MaterialTheme.colorScheme
+                                                                                .error,
+                                                                fontSize = 13.sp,
+                                                                modifier =
+                                                                        Modifier.padding(top = 6.dp)
+                                                        )
+                                                }
+                                                Spacer(Modifier.height(12.dp))
+                                                Row(
+                                                        horizontalArrangement =
+                                                                Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                        TextButton(
+                                                                onClick = { resetTopUpForm() },
+                                                                modifier =
+                                                                        Modifier.weight(1f)
+                                                                                .height(50.dp),
+                                                                shape = RoundedCornerShape(16.dp)
+                                                        ) {
+                                                                Text(
+                                                                        "Cancel",
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        color = accent
+                                                                )
+                                                        }
+                                                        Button(
+                                                                onClick = {
+                                                                        val v =
+                                                                                topUpAmount.trim()
+                                                                                        .toDoubleOrNull()
+                                                                        if (v == null ||
+                                                                                        !v.isFinite() ||
+                                                                                        v <= 0.0
+                                                                        ) {
+                                                                                topUpError =
+                                                                                        "Enter a valid amount."
+                                                                        } else {
+                                                                                scope.launch {
+                                                                                        dao.insertRepayment(
+                                                                                                LoanRepaymentEntity(
+                                                                                                        loanId =
+                                                                                                                loan.id,
+                                                                                                        amount =
+                                                                                                                -v,
+                                                                                                        note =
+                                                                                                                topUpNote.trim(),
+                                                                                                        createdAt =
+                                                                                                                System.currentTimeMillis()
+                                                                                                )
+                                                                                        )
+                                                                                        onRepaymentAdded()
+                                                                                }
+                                                                                resetTopUpForm()
+                                                                        }
+                                                                },
+                                                                modifier =
+                                                                        Modifier.weight(1f)
+                                                                                .height(50.dp),
+                                                                shape = RoundedCornerShape(16.dp),
+                                                                colors =
+                                                                        ButtonDefaults.buttonColors(
+                                                                                containerColor =
+                                                                                        accent
+                                                                        )
+                                                        ) {
+                                                                Text(
+                                                                        "Save",
                                                                         fontWeight = FontWeight.Bold,
                                                                         color = Color.White
                                                                 )
@@ -1149,19 +1583,6 @@ private fun LoanDetailSheet(
                                 )
                         }
 
-                        Spacer(Modifier.height(20.dp))
-                        TextButton(
-                                onClick = onDeleteRequest,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp)
-                        ) {
-                                Text(
-                                        "Delete loan",
-                                        color = MaterialTheme.colorScheme.error,
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 14.sp
-                                )
-                        }
                 }
         }
 
@@ -1224,8 +1645,10 @@ private fun RepaymentTimeline(
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                         ) {
+                                                val isTopUp = r.amount < 0
                                                 Text(
                                                         if (r.note.isNotBlank()) r.note
+                                                        else if (isTopUp) "Top-up"
                                                         else "Repayment",
                                                         fontSize = 14.sp,
                                                         fontWeight = FontWeight.Medium,
@@ -1233,7 +1656,8 @@ private fun RepaymentTimeline(
                                                         modifier = Modifier.weight(1f)
                                                 )
                                                 Text(
-                                                        "$symbol ${String.format(Locale.US, "%,.2f", r.amount)}",
+                                                        (if (isTopUp) "+ " else "") +
+                                                                "$symbol ${String.format(Locale.US, "%,.2f", kotlin.math.abs(r.amount))}",
                                                         fontWeight = FontWeight.Bold,
                                                         color = accent,
                                                         fontSize = 14.sp

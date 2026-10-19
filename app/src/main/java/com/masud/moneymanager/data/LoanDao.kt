@@ -1,4 +1,4 @@
-
+// FILE: app/src/main/java/com/masud/moneymanager/data/LoanDao.kt
 package com.masud.moneymanager.data
 
 import androidx.room.Dao
@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -22,6 +23,9 @@ interface LoanDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertLoans(loans: List<LoanEntity>)
+
+    @Update
+    suspend fun updateLoan(loan: LoanEntity)
 
     @Query("DELETE FROM loans WHERE id = :loanId")
     suspend fun deleteLoan(loanId: Long)

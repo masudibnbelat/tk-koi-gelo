@@ -10,6 +10,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -23,7 +25,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -47,7 +48,6 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
@@ -477,28 +477,11 @@ fun HomeScreen(
                                 }
                         }
 
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                                TabHeaderItem(
-                                        text = "Monthly",
-                                        selected = selectedView == 0,
-                                        modifier = Modifier.weight(1f),
-                                ) { selectedView = 0 }
-                                TabHeaderItem(
-                                        text = "Calendar",
-                                        selected = selectedView == 1,
-                                        modifier = Modifier.weight(1f),
-                                ) { selectedView = 1 }
-                                TabHeaderItem(
-                                        text = "Accounts",
-                                        selected = selectedView == 2,
-                                        modifier = Modifier.weight(1f),
-                                ) { selectedView = 2 }
-                                TabHeaderItem(
-                                        text = "Tasks",
-                                        selected = selectedView == 3,
-                                        modifier = Modifier.weight(1f),
-                                ) { selectedView = 3 }
-                        }
+                        AnimatedTabHeader(
+                                selectedView = selectedView,
+                                onSelect = { selectedView = it },
+                                modifier = Modifier.fillMaxWidth(),
+                        )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                         AnimatedVisibility(visible = selectedView == 0) {
@@ -641,18 +624,6 @@ fun HomeScreen(
                                                                                 }
                                                                         }
                                                                 }
-                                                                ScrollToTopButton(
-                                                                        listState = dayListState,
-                                                                        modifier =
-                                                                                Modifier.align(
-                                                                                                Alignment
-                                                                                                        .BottomCenter
-                                                                                        )
-                                                                                        .padding(
-                                                                                                bottom =
-                                                                                                        96.dp
-                                                                                        ),
-                                                                )
                                                         }
                                                 }
                                         }
@@ -2402,72 +2373,66 @@ private fun TransactionList(
                                 item(key = "spacer-$key") { Spacer(Modifier.height(8.dp)) }
                         }
                 }
-                ScrollToTopButton(
-                        listState = listState,
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp),
-                )
         }
 }
 
 @Composable
-private fun ScrollToTopButton(
-        listState: LazyListState,
+private fun AnimatedTabHeader(
+        selectedView: Int,
+        onSelect: (Int) -> Unit,
         modifier: Modifier = Modifier,
-) {
-        val scope = rememberCoroutineScope()
-        val showTop by remember { derivedStateOf { listState.firstVisibleItemIndex > 4 } }
-        AnimatedVisibility(
-                visible = showTop,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically(),
-                modifier = modifier,
-        ) {
-                FloatingActionButton(
-                        onClick = { scope.launch { listState.animateScrollToItem(0) } },
-                        modifier = Modifier.size(44.dp),
-                        shape = CircleShape,
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = Color.White,
-                ) {
-                        Icon(
-                                Icons.Default.KeyboardArrowUp,
-                                contentDescription = "Scroll to top",
-                        )
-                }
-        }
-}
-
-@Composable
-private fun TabHeaderItem(
-        text: String,
-        selected: Boolean,
-        modifier: Modifier = Modifier,
-        onClick: () -> Unit,
 ) {
         val accent = MaterialTheme.colorScheme.primary
-        Column(
-                modifier = modifier.clickable(onClick = onClick),
-                horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-                Text(
-                        text = text,
-                        color =
-                                if (selected) accent
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                )
-                if (selected) {
+        val tabs = listOf("Monthly", "Calendar", "Accounts", "Tasks")
+        BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+                val tabW = maxWidth / tabs.size
+                val indicatorX by
+                        animateDpAsState(
+                                targetValue = tabW * selectedView,
+                                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                                label = "tabIndicatorX"
+                        )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                                tabs.forEachIndexed { i, label ->
+                                        val selected = selectedView == i
+                                        val textColor by
+                                                animateColorAsState(
+                                                        targetValue =
+                                                                if (selected) accent
+                                                                else
+                                                                        MaterialTheme.colorScheme
+                                                                                .onSurfaceVariant,
+                                                        animationSpec = tween(250),
+                                                        label = "tabText"
+                                                )
+                                        Box(
+                                                modifier =
+                                                        Modifier.weight(1f)
+                                                                .clip(RoundedCornerShape(8.dp))
+                                                                .clickable { onSelect(i) }
+                                                                .padding(vertical = 8.dp),
+                                                contentAlignment = Alignment.Center,
+                                        ) {
+                                                Text(
+                                                        text = label,
+                                                        color = textColor,
+                                                        fontWeight =
+                                                                if (selected) FontWeight.Bold
+                                                                else FontWeight.Medium,
+                                                        fontSize = 14.sp,
+                                                )
+                                        }
+                                }
+                        }
                         Box(
                                 modifier =
-                                        Modifier.height(3.dp)
-                                                .fillMaxWidth(0.6f)
-                                                .clip(RoundedCornerShape(50))
+                                        Modifier.width(tabW * 0.6f)
+                                                .offset(x = indicatorX + tabW * 0.2f)
+                                                .height(3.dp)
+                                                .clip(CircleShape)
                                                 .background(accent),
                         )
-                } else {
-                        Spacer(Modifier.height(3.dp))
                 }
         }
 }
